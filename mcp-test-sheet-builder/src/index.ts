@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { authorize } from "./auth.js";
 
 // ESM用にファイルパスを取得
 const __filename = fileURLToPath(import.meta.url);
@@ -50,38 +51,7 @@ function safeJsonParse(str: string): any {
 
 // Google認証用クライアントの取得
 async function getAuthClient(): Promise<OAuth2Client | null> {
-  try {
-    // クライアント認証情報の読み込み
-    if (!fs.existsSync(CREDENTIALS_PATH)) {
-      console.error(`認証情報ファイルが見つかりません: ${CREDENTIALS_PATH}`);
-      return null;
-    }
-
-    const credentialsContent = fs.readFileSync(CREDENTIALS_PATH, "utf8");
-    const credentials = JSON.parse(credentialsContent);
-    
-    const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
-    const oAuth2Client = new google.auth.OAuth2(
-      client_id,
-      client_secret,
-      redirect_uris[0]
-    );
-    
-    // トークンの確認
-    if (!fs.existsSync(TOKEN_PATH)) {
-      console.error(`トークンファイルが見つかりません: ${TOKEN_PATH}`);
-      return null;
-    }
-    
-    const tokenContent = fs.readFileSync(TOKEN_PATH, "utf8");
-    const token = JSON.parse(tokenContent);
-    oAuth2Client.setCredentials(token);
-    
-    return oAuth2Client;
-  } catch (error) {
-    console.error("認証エラー:", error);
-    return null;
-  }
+  return authorize();
 }
 
 // 因子と水準のインターフェース
