@@ -32,7 +32,7 @@ export class GoogleSheetService {
       
       return response.data.values || [];
     } catch (error) {
-      console.error('スプレッドシートの値の取得に失敗しました:', error);
+      // console.error('スプレッドシートの値の取得に失敗しました:', error);
       throw error;
     }
   }
@@ -54,7 +54,7 @@ export class GoogleSheetService {
         },
       });
     } catch (error) {
-      console.error('スプレッドシートの値の更新に失敗しました:', error);
+      // console.error('スプレッドシートの値の更新に失敗しました:', error);
       throw error;
     }
   }
@@ -79,7 +79,7 @@ export class GoogleSheetService {
       
       return response.data.id;
     } catch (error) {
-      console.error('スプレッドシートのコピーに失敗しました:', error);
+      // console.error('スプレッドシートのコピーに失敗しました:', error);
       throw error;
     }
   }

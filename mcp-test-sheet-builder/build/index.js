@@ -1,330 +1,364 @@
-"use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
-const cors_1 = __importDefault(require("cors"));
-const GoogleSheetService_1 = require("./services/GoogleSheetService");
-const TestSheetBuilder_1 = require("./services/TestSheetBuilder");
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
-const googleapis_1 = require("googleapis");
-const readline_1 = __importDefault(require("readline"));
-const http_1 = __importDefault(require("http"));
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { google } from "googleapis";
+import { z } from "zod";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+// ESM用にファイルパスを取得
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 // 認証情報ファイルのパスを設定
-const CREDENTIALS_PATH = process.env.CREDENTIALS_PATH || path_1.default.join(__dirname, '../credentials/client_secret.json');
-const TOKEN_PATH = process.env.TOKEN_PATH || path_1.default.join(__dirname, '../credentials/token.json');
+const CREDENTIALS_PATH = process.env.CREDENTIALS_PATH || path.join(__dirname, "../credentials/client_secret.json");
+const TOKEN_PATH = process.env.TOKEN_PATH || path.join(__dirname, "../credentials/token.json");
 // Google APIのスコープ設定
 const SCOPES = [
-    'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/spreadsheets'
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets"
 ];
-/**
- * トークンを取得して保存する
- * @param oAuth2Client OAuth2クライアント
- */
-function getAndSaveToken(oAuth2Client) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const authUrl = oAuth2Client.generateAuthUrl({
-            access_type: 'offline',
-            scope: SCOPES,
-        });
-        console.log('以下のURLにアクセスして認証コードを取得してください:');
-        console.log(authUrl);
-        const rl = readline_1.default.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-        });
-        return new Promise((resolve, reject) => {
-            rl.question('認証コードを入力してください: ', (code) => __awaiter(this, void 0, void 0, function* () {
-                rl.close();
-                try {
-                    const { tokens } = yield oAuth2Client.getToken(code);
-                    oAuth2Client.setCredentials(tokens);
-                    // トークンをファイルに保存
-                    fs_1.default.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
-                    console.log(`トークンが ${TOKEN_PATH} に保存されました`);
-                    resolve(tokens);
-                }
-                catch (error) {
-                    console.error('トークンの取得に失敗しました:', error);
-                    reject(error);
-                }
-            }));
-        });
-    });
+// Create server instance
+const server = new McpServer({
+    name: "mcp-test-sheet-builder",
+    version: "1.0.0",
+    capabilities: {
+        resources: {},
+        tools: {},
+    },
+});
+// JSONを安全にパースする関数
+function safeJsonParse(str) {
+    if (!str)
+        return null;
+    try {
+        // すでにオブジェクトの場合はそのまま返す
+        if (typeof str === "object")
+            return str;
+        // 文字列の場合はパースする
+        return JSON.parse(str);
+    }
+    catch (error) {
+        console.error("JSONパースエラー:", error);
+        return null;
+    }
 }
-// 認証処理とサーバー起動
-function authorize() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            // credentials ファイルの読み込み
-            if (!fs_1.default.existsSync(CREDENTIALS_PATH)) {
-                console.error(`認証情報ファイルが見つかりません: ${CREDENTIALS_PATH}`);
-                process.exit(1);
-            }
-            const credentialsContent = fs_1.default.readFileSync(CREDENTIALS_PATH, 'utf8');
-            const credentials = JSON.parse(credentialsContent);
-            const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
-            const oAuth2Client = new googleapis_1.google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
-            // トークンファイルの確認
-            let token;
-            if (!fs_1.default.existsSync(TOKEN_PATH)) {
-                console.log(`トークンファイルが見つかりません: ${TOKEN_PATH}`);
-                console.log('認証フローを開始します...');
-                token = yield getAndSaveToken(oAuth2Client);
-            }
-            else {
-                const tokenContent = fs_1.default.readFileSync(TOKEN_PATH, 'utf8');
-                token = JSON.parse(tokenContent);
-                oAuth2Client.setCredentials(token);
-            }
-            // サーバーの起動
-            startServer(credentials, token);
+// Google認証用クライアントの取得
+async function getAuthClient() {
+    try {
+        // クライアント認証情報の読み込み
+        if (!fs.existsSync(CREDENTIALS_PATH)) {
+            console.error(`認証情報ファイルが見つかりません: ${CREDENTIALS_PATH}`);
+            return null;
         }
-        catch (error) {
-            console.error('認証処理中にエラーが発生しました:', error);
-            process.exit(1);
+        const credentialsContent = fs.readFileSync(CREDENTIALS_PATH, "utf8");
+        const credentials = JSON.parse(credentialsContent);
+        const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
+        const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+        // トークンの確認
+        if (!fs.existsSync(TOKEN_PATH)) {
+            console.error(`トークンファイルが見つかりません: ${TOKEN_PATH}`);
+            return null;
         }
-    });
+        const tokenContent = fs.readFileSync(TOKEN_PATH, "utf8");
+        const token = JSON.parse(tokenContent);
+        oAuth2Client.setCredentials(token);
+        return oAuth2Client;
+    }
+    catch (error) {
+        console.error("認証エラー:", error);
+        return null;
+    }
 }
-// サーバー起動関数
-function startServer(credentials, token) {
-    // GoogleSheetServiceの初期化
-    const googleSheetService = new GoogleSheetService_1.GoogleSheetService(credentials, token);
-    // TestSheetBuilderの初期化
-    const testSheetBuilder = new TestSheetBuilder_1.TestSheetBuilder(googleSheetService);
-    // Express アプリケーションの設定
-    const app = (0, express_1.default)();
-    const port = process.env.PORT || 3005;
-    app.use((0, cors_1.default)());
-    app.use(express_1.default.json());
-    // ヘルスチェックエンドポイント
-    app.get('/health', (req, res) => {
-        res.status(200).json({ status: 'ok' });
-    });
-    // テストシートを生成するエンドポイント
-    app.post('/generate-test-sheet', (req, res) => __awaiter(this, void 0, void 0, function* () {
-        try {
-            const { templateId, title, prompt, useOrthogonalArray } = req.body;
-            if (!templateId || !title || !prompt) {
-                return res.status(400).json({ error: 'templateId, title, promptは必須パラメータです' });
-            }
-            // プロンプトから因子と水準を生成
-            const factors = testSheetBuilder.generateFactorsFromPrompt(prompt);
-            // テストケースの生成（直交表を使うかどうかで分岐）
-            const testCases = useOrthogonalArray
-                ? testSheetBuilder.generateOrthogonalArrayTestCases(factors)
-                : testSheetBuilder.generateAllCombinationsTestCases(factors);
-            // テストシートの作成
-            const newSheetId = yield testSheetBuilder.createTestSheet(templateId, title, factors, testCases);
-            res.status(200).json({
-                sheetId: newSheetId,
-                sheetUrl: `https://docs.google.com/spreadsheets/d/${newSheetId}`,
-                factorCount: factors.length,
-                testCaseCount: testCases.length
-            });
+// プロンプトから因子と水準を生成する関数
+function generateFactorsFromPrompt(prompt) {
+    // この実装はとても単純化されています
+    const factors = [];
+    // プロンプトから基本的な因子を抽出する簡易処理の例
+    if (prompt.includes("ブラウザ")) {
+        factors.push({
+            name: "ブラウザ",
+            levels: ["Chrome", "Firefox", "Safari", "Edge"]
+        });
+    }
+    if (prompt.includes("OS")) {
+        factors.push({
+            name: "OS",
+            levels: ["Windows", "macOS", "Linux"]
+        });
+    }
+    if (prompt.includes("画面サイズ") || prompt.includes("解像度")) {
+        factors.push({
+            name: "画面サイズ",
+            levels: ["スマホ", "タブレット", "デスクトップ"]
+        });
+    }
+    if (prompt.includes("ネットワーク")) {
+        factors.push({
+            name: "ネットワーク状態",
+            levels: ["高速", "遅延あり", "オフライン"]
+        });
+    }
+    // もし因子が見つからなかった場合、デフォルトの因子を追加
+    if (factors.length === 0) {
+        factors.push({
+            name: "テスト環境",
+            levels: ["開発環境", "テスト環境", "本番環境"]
+        });
+        factors.push({
+            name: "ユーザー権限",
+            levels: ["一般ユーザー", "管理者"]
+        });
+    }
+    return factors;
+}
+// 全因子組み合わせテストケースを生成する関数
+function generateAllCombinationsTestCases(factors) {
+    if (factors.length === 0) {
+        return [];
+    }
+    // 再帰的に組み合わせを生成
+    const generateCombinations = (index, currentCombination) => {
+        if (index === factors.length) {
+            return [currentCombination];
         }
-        catch (error) {
-            console.error('テストシート生成中にエラーが発生しました:', error);
-            res.status(500).json({ error: 'テストシートの生成に失敗しました' });
+        const factor = factors[index];
+        const result = [];
+        for (const level of factor.levels) {
+            const newCombination = { ...currentCombination };
+            newCombination[factor.name] = level;
+            result.push(...generateCombinations(index + 1, newCombination));
         }
-    }));
-    // スプレッドシートの情報を取得するエンドポイント
-    app.get('/spreadsheet/:id', (req, res) => __awaiter(this, void 0, void 0, function* () {
-        try {
-            const { id } = req.params;
-            const { range } = req.query;
-            if (!id) {
-                return res.status(400).json({ error: 'スプレッドシートIDは必須パラメータです' });
-            }
-            const sheetRange = typeof range === 'string' ? range : 'Sheet1!A1:Z100';
-            const values = yield googleSheetService.getSheetValues(id, sheetRange);
-            res.status(200).json({ values });
+        return result;
+    };
+    return generateCombinations(0, {});
+}
+// 直交表によるテストケースを生成する関数（簡易版）
+function generateOrthogonalArrayTestCases(factors) {
+    // 簡易版の実装。本来は複雑な直交表アルゴリズムが必要
+    if (factors.length <= 2) {
+        return generateAllCombinationsTestCases(factors);
+    }
+    // 代表的な水準を選択して組み合わせる簡易実装
+    const testCases = [];
+    const mainFactors = factors.slice(0, 2); // 最初の2つの因子は全組み合わせ
+    const mainCombinations = generateAllCombinationsTestCases(mainFactors);
+    const otherFactors = factors.slice(2);
+    for (const combination of mainCombinations) {
+        const testCase = { ...combination };
+        // 残りの因子はランダムに水準を選択
+        for (const factor of otherFactors) {
+            const randomIndex = Math.floor(Math.random() * factor.levels.length);
+            testCase[factor.name] = factor.levels[randomIndex];
         }
-        catch (error) {
-            console.error('スプレッドシートの取得中にエラーが発生しました:', error);
-            res.status(500).json({ error: 'スプレッドシートの取得に失敗しました' });
-        }
-    }));
-    // スプレッドシートを更新するエンドポイント
-    app.post('/spreadsheet/:id/update', (req, res) => __awaiter(this, void 0, void 0, function* () {
-        try {
-            const { id } = req.params;
-            const { range, values } = req.body;
-            if (!id || !range || !values) {
-                return res.status(400).json({ error: 'id, range, valuesは必須パラメータです' });
-            }
-            yield googleSheetService.updateSheetValues(id, range, values);
-            res.status(200).json({ success: true });
-        }
-        catch (error) {
-            console.error('スプレッドシートの更新中にエラーが発生しました:', error);
-            res.status(500).json({ error: 'スプレッドシートの更新に失敗しました' });
-        }
-    }));
-    // HTTPサーバー作成
-    const server = http_1.default.createServer(app);
-    // MCP関連のツール定義
-    const mcpTools = {
-        'generate-test': {
-            description: 'テストシートを生成します',
-            parameters: {
-                templateId: {
-                    type: 'string',
-                    description: 'テンプレートとなるスプレッドシートのID'
-                },
-                title: {
-                    type: 'string',
-                    description: '生成するスプレッドシートのタイトル'
-                },
-                prompt: {
-                    type: 'string',
-                    description: 'テスト要件を記述したプロンプト'
-                },
-                useOrthogonalArray: {
-                    type: 'boolean',
-                    description: '直交表を使用するかどうか（省略時はfalse）'
-                }
+        testCases.push(testCase);
+    }
+    return testCases;
+}
+// 列番号をA1形式の列文字に変換する関数
+function columnIndexToLetter(index) {
+    let temp, letter = "";
+    while (index > 0) {
+        temp = (index - 1) % 26;
+        letter = String.fromCharCode(temp + 65) + letter;
+        index = (index - temp - 1) / 26;
+    }
+    return letter;
+}
+// スプレッドシートの値を取得する関数
+async function getSheetValues(auth, spreadsheetId, range) {
+    const sheets = google.sheets({ version: "v4", auth });
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range,
+        });
+        return response.data.values || [];
+    }
+    catch (error) {
+        console.error("スプレッドシートの値取得エラー:", error);
+        throw error;
+    }
+}
+// スプレッドシートの値を更新する関数
+async function updateSheetValues(auth, spreadsheetId, range, values) {
+    const sheets = google.sheets({ version: "v4", auth });
+    try {
+        await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range,
+            valueInputOption: "USER_ENTERED",
+            requestBody: {
+                values,
             },
-            handler: (params) => __awaiter(this, void 0, void 0, function* () {
-                try {
-                    const { templateId, title, prompt, useOrthogonalArray } = params;
-                    if (!templateId || !title || !prompt) {
-                        return { error: 'templateId, title, promptは必須パラメータです' };
-                    }
-                    // プロンプトから因子と水準を生成
-                    const factors = testSheetBuilder.generateFactorsFromPrompt(prompt);
-                    // テストケースの生成（直交表を使うかどうかで分岐）
-                    const testCases = useOrthogonalArray
-                        ? testSheetBuilder.generateOrthogonalArrayTestCases(factors)
-                        : testSheetBuilder.generateAllCombinationsTestCases(factors);
-                    // テストシートの作成
-                    const newSheetId = yield testSheetBuilder.createTestSheet(templateId, title, factors, testCases);
-                    return {
+        });
+    }
+    catch (error) {
+        console.error("スプレッドシートの値の更新エラー:", error);
+        throw error;
+    }
+}
+// テンプレートからスプレッドシートをコピーする関数
+async function copySpreadsheet(auth, templateId, title) {
+    const drive = google.drive({ version: "v3", auth });
+    try {
+        const response = await drive.files.copy({
+            fileId: templateId,
+            requestBody: {
+                name: title,
+            },
+        });
+        if (!response.data.id) {
+            throw new Error("コピーしたファイルのIDが取得できませんでした");
+        }
+        return response.data.id;
+    }
+    catch (error) {
+        console.error("スプレッドシートのコピーエラー:", error);
+        throw error;
+    }
+}
+// テストシートを作成する関数
+async function createTestSheet(auth, templateId, title, factors, testCases) {
+    // テンプレートをコピー
+    const newSheetId = await copySpreadsheet(auth, templateId, title);
+    // 因子と水準をシートに書き込む
+    const factorValues = [
+        ["因子", "水準"],
+        ...factors.map(factor => [factor.name, factor.levels.join(", ")])
+    ];
+    await updateSheetValues(auth, newSheetId, "因子水準!A1:B" + (factors.length + 1), factorValues);
+    // テストケースをシートに書き込む
+    if (testCases.length > 0) {
+        // ヘッダー行の作成
+        const headers = ["No.", ...Object.keys(testCases[0]), "結果", "備考"];
+        // データ行の作成
+        const rows = testCases.map((testCase, index) => {
+            return [
+                (index + 1).toString(),
+                ...Object.values(testCase),
+                "", // 結果列
+                "" // 備考列
+            ];
+        });
+        const testCaseValues = [headers, ...rows];
+        await updateSheetValues(auth, newSheetId, "テストケース!A1:" + columnIndexToLetter(headers.length) + (testCases.length + 1), testCaseValues);
+    }
+    return newSheetId;
+}
+// テストシート生成ツール
+server.tool("generate-test", "テストシートを生成します", {
+    templateId: z.string().describe("テンプレートとなるスプレッドシートのID"),
+    title: z.string().describe("生成するスプレッドシートのタイトル"),
+    prompt: z.string().describe("テスト要件を記述したプロンプト"),
+    useOrthogonalArray: z.boolean().optional().describe("直交表を使用するかどうか（省略時はfalse）"),
+}, async ({ templateId, title, prompt, useOrthogonalArray = false }) => {
+    try {
+        const auth = await getAuthClient();
+        if (!auth) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: "Google認証に失敗しました。認証情報とトークンを確認してください。",
+                    },
+                ],
+            };
+        }
+        // プロンプトから因子と水準を生成
+        const factors = generateFactorsFromPrompt(prompt);
+        // テストケースの生成
+        const testCases = useOrthogonalArray
+            ? generateOrthogonalArrayTestCases(factors)
+            : generateAllCombinationsTestCases(factors);
+        // テストシートの作成
+        const newSheetId = await createTestSheet(auth, templateId, title, factors, testCases);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
                         sheetId: newSheetId,
                         sheetUrl: `https://docs.google.com/spreadsheets/d/${newSheetId}`,
                         factorCount: factors.length,
                         testCaseCount: testCases.length
-                    };
+                    }, null, 2)
                 }
-                catch (error) {
-                    console.error('テストシート生成中にエラーが発生しました:', error);
-                    return { error: 'テストシートの生成に失敗しました' };
+            ],
+        };
+    }
+    catch (error) {
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `テストシートの生成に失敗しました: ${error.message || String(error)}`
                 }
-            })
-        },
-        'get-spreadsheet': {
-            description: 'スプレッドシートの情報を取得します',
-            parameters: {
-                id: {
-                    type: 'string',
-                    description: 'スプレッドシートのID'
-                },
-                range: {
-                    type: 'string',
-                    description: '取得する範囲（例: Sheet1!A1:Z100）'
-                }
-            },
-            handler: (params) => __awaiter(this, void 0, void 0, function* () {
-                try {
-                    const { id, range } = params;
-                    if (!id) {
-                        return { error: 'スプレッドシートIDは必須パラメータです' };
-                    }
-                    const sheetRange = range || 'Sheet1!A1:Z100';
-                    const values = yield googleSheetService.getSheetValues(id, sheetRange);
-                    return { values };
-                }
-                catch (error) {
-                    console.error('スプレッドシートの取得中にエラーが発生しました:', error);
-                    return { error: 'スプレッドシートの取得に失敗しました' };
-                }
-            })
+            ],
+            isError: true
+        };
+    }
+});
+// スプレッドシート情報取得ツール
+server.tool("get-spreadsheet", "スプレッドシートの情報を取得します", {
+    id: z.string().describe("スプレッドシートのID"),
+    range: z.string().optional().describe("取得する範囲（例: Sheet1!A1:Z100）"),
+}, async ({ id, range = "Sheet1!A1:Z100" }) => {
+    try {
+        const auth = await getAuthClient();
+        if (!auth) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: "Google認証に失敗しました。認証情報とトークンを確認してください。",
+                    },
+                ],
+            };
         }
-    };
-    // サーバー起動
-    server.listen(port, () => {
-        console.log(`MCP Test Sheet Builder サーバーが起動しました: http://localhost:${port}`);
-        console.log(`認証情報ファイル: ${CREDENTIALS_PATH}`);
-        console.log(`トークンファイル: ${TOKEN_PATH}`);
-    });
-    // MCP処理に対応するための標準入力のリスナー
-    process.stdin.on('data', (data) => {
-        try {
-            const message = JSON.parse(data.toString());
-            // 初期化メッセージ
-            if (message.type === 'initialize') {
-                const response = {
-                    type: 'initialize_response',
-                    tools: Object.entries(mcpTools).map(([name, tool]) => ({
-                        name,
-                        description: tool.description,
-                        parameters: tool.parameters
-                    }))
-                };
-                process.stdout.write(JSON.stringify(response) + '\n');
-            }
-            // ツール呼び出しメッセージ
-            else if (message.type === 'call_tool') {
-                const toolName = message.name;
-                const tool = mcpTools[toolName];
-                if (!tool) {
-                    const response = {
-                        type: 'call_tool_response',
-                        id: message.id,
-                        error: `ツール "${toolName}" が見つかりません`
-                    };
-                    process.stdout.write(JSON.stringify(response) + '\n');
+        const values = await getSheetValues(auth, id, range);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({ values }, null, 2)
                 }
-                else {
-                    (() => __awaiter(this, void 0, void 0, function* () {
-                        try {
-                            const result = yield tool.handler(message.parameters);
-                            const response = {
-                                type: 'call_tool_response',
-                                id: message.id,
-                                result
-                            };
-                            process.stdout.write(JSON.stringify(response) + '\n');
-                        }
-                        catch (error) {
-                            const response = {
-                                type: 'call_tool_response',
-                                id: message.id,
-                                error: `ツールの実行中にエラーが発生しました: ${error}`
-                            };
-                            process.stdout.write(JSON.stringify(response) + '\n');
-                        }
-                    }))();
+            ],
+        };
+    }
+    catch (error) {
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `スプレッドシートの取得に失敗しました: ${error.message || String(error)}`
                 }
-            }
+            ],
+            isError: true
+        };
+    }
+});
+// メイン関数
+async function main() {
+    try {
+        // 認証情報とトークンの存在確認（起動時のみ）
+        if (!fs.existsSync(CREDENTIALS_PATH)) {
+            console.error(`認証情報ファイルが見つかりません: ${CREDENTIALS_PATH}`);
+            process.exit(1);
         }
-        catch (error) {
-            console.error('MCP処理中にエラーが発生しました:', error);
+        if (!fs.existsSync(TOKEN_PATH)) {
+            console.error(`トークンファイルが見つかりません: ${TOKEN_PATH}`);
+            process.exit(1);
         }
-    });
-    // プロセス終了時のハンドリング
-    process.on('SIGTERM', () => {
-        console.log('SIGTERM を受信しました。サーバーをシャットダウンします...');
-        server.close();
-        process.exit(0);
-    });
-    process.on('SIGINT', () => {
-        console.log('SIGINT を受信しました。サーバーをシャットダウンします...');
-        server.close();
-        process.exit(0);
-    });
+        const transport = new StdioServerTransport();
+        await server.connect(transport);
+        console.error("MCP Test Sheet Builder サーバーが標準入出力で実行中");
+    }
+    catch (error) {
+        console.error("初期化エラー:", error);
+        process.exit(1);
+    }
 }
-// 認証処理を開始してサーバーを起動
-authorize();
+main().catch((error) => {
+    console.error("main()での致命的なエラー:", error);
+    process.exit(1);
+});

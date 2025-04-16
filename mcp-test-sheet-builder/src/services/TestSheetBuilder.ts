@@ -1,4 +1,4 @@
-import { GoogleSheetService } from './GoogleSheetService';
+import { GoogleSheetService } from './GoogleSheetService.js';
 
 interface Factor {
   name: string;

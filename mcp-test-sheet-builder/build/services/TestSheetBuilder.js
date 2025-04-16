@@ -1,16 +1,4 @@
-"use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.TestSheetBuilder = void 0;
-class TestSheetBuilder {
+export class TestSheetBuilder {
     constructor(googleSheetService) {
         this.googleSheetService = googleSheetService;
     }
@@ -76,7 +64,7 @@ class TestSheetBuilder {
             const factor = factors[index];
             const result = [];
             for (const level of factor.levels) {
-                const newCombination = Object.assign({}, currentCombination);
+                const newCombination = { ...currentCombination };
                 newCombination[factor.name] = level;
                 result.push(...generateCombinations(index + 1, newCombination));
             }
@@ -100,7 +88,7 @@ class TestSheetBuilder {
         const mainCombinations = this.generateAllCombinationsTestCases(mainFactors);
         const otherFactors = factors.slice(2);
         for (const combination of mainCombinations) {
-            const testCase = Object.assign({}, combination);
+            const testCase = { ...combination };
             // 残りの因子はランダムに水準を選択
             for (const factor of otherFactors) {
                 const randomIndex = Math.floor(Math.random() * factor.levels.length);
@@ -117,34 +105,32 @@ class TestSheetBuilder {
      * @param factors 因子と水準
      * @param testCases テストケース
      */
-    createTestSheet(templateId, title, factors, testCases) {
-        return __awaiter(this, void 0, void 0, function* () {
-            // テンプレートをコピー
-            const newSheetId = yield this.googleSheetService.copySpreadsheet(templateId, title);
-            // 因子と水準をシートに書き込む
-            const factorValues = [
-                ['因子', '水準'],
-                ...factors.map(factor => [factor.name, factor.levels.join(', ')])
-            ];
-            yield this.googleSheetService.updateSheetValues(newSheetId, '因子水準!A1:B' + (factors.length + 1), factorValues);
-            // テストケースをシートに書き込む
-            if (testCases.length > 0) {
-                // ヘッダー行の作成
-                const headers = ['No.', ...Object.keys(testCases[0]), '結果', '備考'];
-                // データ行の作成
-                const rows = testCases.map((testCase, index) => {
-                    return [
-                        (index + 1).toString(),
-                        ...Object.values(testCase),
-                        '', // 結果列
-                        '' // 備考列
-                    ];
-                });
-                const testCaseValues = [headers, ...rows];
-                yield this.googleSheetService.updateSheetValues(newSheetId, 'テストケース!A1:' + this.columnIndexToLetter(headers.length) + (testCases.length + 1), testCaseValues);
-            }
-            return newSheetId;
-        });
+    async createTestSheet(templateId, title, factors, testCases) {
+        // テンプレートをコピー
+        const newSheetId = await this.googleSheetService.copySpreadsheet(templateId, title);
+        // 因子と水準をシートに書き込む
+        const factorValues = [
+            ['因子', '水準'],
+            ...factors.map(factor => [factor.name, factor.levels.join(', ')])
+        ];
+        await this.googleSheetService.updateSheetValues(newSheetId, '因子水準!A1:B' + (factors.length + 1), factorValues);
+        // テストケースをシートに書き込む
+        if (testCases.length > 0) {
+            // ヘッダー行の作成
+            const headers = ['No.', ...Object.keys(testCases[0]), '結果', '備考'];
+            // データ行の作成
+            const rows = testCases.map((testCase, index) => {
+                return [
+                    (index + 1).toString(),
+                    ...Object.values(testCase),
+                    '', // 結果列
+                    '' // 備考列
+                ];
+            });
+            const testCaseValues = [headers, ...rows];
+            await this.googleSheetService.updateSheetValues(newSheetId, 'テストケース!A1:' + this.columnIndexToLetter(headers.length) + (testCases.length + 1), testCaseValues);
+        }
+        return newSheetId;
     }
     /**
      * 列番号をA1形式の列文字に変換する
@@ -160,4 +146,3 @@ class TestSheetBuilder {
         return letter;
     }
 }
-exports.TestSheetBuilder = TestSheetBuilder;

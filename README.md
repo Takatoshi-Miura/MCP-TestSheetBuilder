@@ -14,60 +14,45 @@ GoogleスプレッドシートとGoogleドライブを使用して、テスト�
 
 このサーバーは以下のMCPツールを提供します：
 
-1. `generate-test`: テストシートを生成するツール
+1. `mcp_test_sheet_builder_generate_test`: テストシートを生成するツール
    - パラメータ:
      - `templateId`: テンプレートとなるスプレッドシートのID（必須）
      - `title`: 生成するスプレッドシートのタイトル（必須）
      - `prompt`: テスト要件を記述したプロンプト（必須）
-     - `useOrthogonalArray`: 直交表を使用するかどうか（省略可）
+     - `useOrthogonalArray`: 直交表を使用するかどうか（省略可、デフォルト: false）
 
-2. `get-spreadsheet`: スプレッドシートの情報を取得するツール
+2. `mcp_test_sheet_builder_get_spreadsheet`: スプレッドシートの情報を取得するツール
    - パラメータ:
      - `id`: スプレッドシートのID（必須）
      - `range`: 取得する範囲（例: Sheet1!A1:Z100）（省略可）
-
-## APIエンドポイント
-
-- `GET /health`: サーバーのヘルスチェック
-- `POST /generate-test-sheet`: テストシートを生成
-- `GET /spreadsheet/:id`: スプレッドシートの情報を取得
-- `POST /spreadsheet/:id/update`: スプレッドシートを更新
 
 ## セットアップ方法
 
 1. Google API認証情報の設定:
    - Google Cloud Consoleで認証情報を作成し、以下のファイルを配置します：
      - `mcp-test-sheet-builder/credentials/client_secret.json`: Google APIのクライアント認証情報
-   - クライアント認証情報ファイルを配置した後、初回起動時に認証フローが実行されます
+   - 初回起動前に、事前にトークンも取得しておき、以下のパスに配置します:
+     - `mcp-test-sheet-builder/credentials/token.json`: Google APIのアクセストークン
 
-2. サーバーをビルド:
+2. 依存関係のインストール:
    ```
    cd mcp-test-sheet-builder
    npm install
-   npm run build
    ```
 
-3. サーバーを初回起動してトークンを生成:
+3. 開発サーバーの起動:
    ```
-   node build/index.js
+   cd mcp-test-sheet-builder
+   npm run dev
    ```
-   - 表示されたURLにアクセスして認証を行い、コードを取得します
-   - コードは http://localhost/?code= 以降の文字列全てです
-   - 取得したコードをコンソールに入力するとトークンが生成されます
-   - トークンファイル `mcp-test-sheet-builder/credentials/token.json` が自動的に作成されます
 
-4. `.cursor/mcp.json`に以下の設定を追加:
-   ```json
-   "mcp-test-sheet-builder": {
-     "command": "node",
-     "args": [
-       "~/MCP-TestSheetBuilder/mcp-test-sheet-builder/build/index.js"
-     ],
-     "env": {
-       "PORT": "3005"
-     }
-   }
-   ```
+## 本番環境での実行
+
+```
+cd mcp-test-sheet-builder
+npm run build
+npm start
+```
 
 ## CursorでMCPツールを使う方法
 
@@ -76,14 +61,14 @@ GoogleスプレッドシートとGoogleドライブを使用して、テスト�
 
 ```
 // テストシートを生成する例
-const result = await mcp.callTool('generate-test', {
+const result = await mcp.callTool('mcp_test_sheet_builder_generate_test', {
   templateId: '1abc...xyz', // テンプレートのスプレッドシートID
   title: 'テスト計画書',
   prompt: 'Webアプリケーションのログイン機能をテストする。ブラウザ、OS、ネットワーク環境を考慮すること。'
 });
 
 // スプレッドシートの内容を取得する例
-const data = await mcp.callTool('get-spreadsheet', {
+const data = await mcp.callTool('mcp_test_sheet_builder_get_spreadsheet', {
   id: '1abc...xyz', // スプレッドシートID
   range: 'Sheet1!A1:D10'
 });
@@ -96,15 +81,17 @@ const data = await mcp.callTool('get-spreadsheet', {
 3. OAuth同意画面を設定
 4. OAuth 2.0クライアントIDを作成し、認証情報をダウンロード
 5. ダウンロードしたJSONファイルを`credentials/client_secret.json`として保存
-6. 初回実行時に認証フローを実行してトークンを生成します
+6. 認証トークンを取得するには、以下の方法があります:
+   - MCP-TestSheetBuilder以外のGoogleAPI認証フローを持つプロジェクト（例: edit-google-drive）を実行してトークンを取得し、そのトークンをコピーする
+   - または、OAuth認証フローを含む旧バージョンの本プロジェクトを一時的に使用してトークンを取得する
 
 ## トラブルシューティング
 
-- トークンの有効期限が切れた場合は、`credentials/token.json`を削除して再度認証フローを実行します
-- 認証情報のパスを変更する場合は、環境変数`CREDENTIALS_PATH`と`TOKEN_PATH`を設定します
-- ポートが既に使用されている場合（「EADDRINUSE: address already in use」エラー）の対処法：
-  1. 使用中のプロセスを終了する: `lsof -i :3000` でプロセスを確認し、`kill -9 <PID>` で終了
-  2. または、`src/index.ts` の `port` 変数を別のポート番号に変更し、再ビルド
-- 「Client closed」エラーが発生する場合：
-  1. サーバーが正常に起動しているか確認（ログを確認）
-  2. サーバーコードがMCPプロトコルに対応しているか確認
+- トークンが期限切れになった場合は、新しいトークンを取得して`credentials/token.json`を更新してください。
+- Google APIの権限が不足している場合は、Google Cloud Consoleでプロジェクトの権限を確認してください。
+
+## 技術詳細
+
+- このバージョンではMCPプロトコルのみをサポートしています。
+- パラメータのバリデーションにZodを使用しています。
+- GoogleスプレッドシートとGoogleドライブの操作にGoogle API Node.js クライアントライブラリを使用しています。
