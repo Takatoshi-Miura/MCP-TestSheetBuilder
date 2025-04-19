@@ -72,7 +72,7 @@ export async function getTokenFromCode(oAuth2Client: OAuth2Client, code: string,
     
     // トークンをファイルに保存
     fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
-    console.log(`トークンが保存されました: ${TOKEN_PATH}`);
+    // console.log(`トークンが保存されました: ${TOKEN_PATH}`);
   } catch (error) {
     console.error("トークン取得エラー:", error);
     throw error;
@@ -87,8 +87,8 @@ async function openBrowser(url: string): Promise<void> {
     await open(url);
   } catch (error) {
     console.error("ブラウザを開く際にエラーが発生しました:", error);
-    console.log("手動で次のURLをブラウザで開いてください:");
-    console.log(url);
+    // console.log("手動で次のURLをブラウザで開いてください:");
+    // console.log(url);
   }
 }
 
@@ -164,11 +164,11 @@ export function startLocalAuthServer(oAuth2Client: OAuth2Client): Promise<void> 
       if (address && typeof address !== "string") {
         const port = address.port;
         const redirectUri = `http://localhost:${port}`;
-        console.log(`ローカル認証サーバーが起動しました: ${redirectUri}`);
+        // console.log(`ローカル認証サーバーが起動しました: ${redirectUri}`);
         
         // 認証URLを生成して開く
         const authUrl = getAuthUrl(oAuth2Client, redirectUri);
-        console.log(`ブラウザで次のURLを開いて認証してください: ${authUrl}`);
+        // console.log(`ブラウザで次のURLを開いて認証してください: ${authUrl}`);
         
         // ブラウザを開く
         openBrowser(authUrl);
@@ -196,32 +196,32 @@ export async function authorize(): Promise<OAuth2Client | null> {
       // トークンが有効期限切れかどうか確認
       const currentTime = Date.now();
       if (token.expiry_date && token.expiry_date > currentTime) {
-        console.log("既存のトークンを使用します");
+        // console.log("既存のトークンを使用します");
         return oAuth2Client;
       } else if (token.refresh_token) {
         // リフレッシュトークンがある場合は更新を試みる
         try {
-          console.log("トークンを更新します...");
+          // console.log("トークンを更新します...");
           const { credentials } = await oAuth2Client.refreshAccessToken();
           oAuth2Client.setCredentials(credentials);
           
           // 更新したトークンを保存
           fs.writeFileSync(TOKEN_PATH, JSON.stringify(credentials));
-          console.log("トークンが更新されました");
+          // console.log("トークンが更新されました");
           return oAuth2Client;
         } catch (refreshError) {
           console.error("トークン更新エラー:", refreshError);
-          console.log("新しいトークンを取得します...");
+          // console.log("新しいトークンを取得します...");
         }
       }
     } catch (error) {
       console.error("トークン読み込みエラー:", error);
-      console.log("新しいトークンを取得します...");
+      // console.log("新しいトークンを取得します...");
     }
   }
   
   // 新しいトークンを取得するためにOAuth認証フローを開始
-  console.log("OAuth認証フローを開始します...");
+  // console.log("OAuth認証フローを開始します...");
   try {
     await startLocalAuthServer(oAuth2Client);
     return oAuth2Client;
@@ -235,12 +235,12 @@ export async function authorize(): Promise<OAuth2Client | null> {
  * トークン生成コマンドを実行する関数
  */
 export async function generateToken(): Promise<void> {
-  console.log("Google API認証トークンを生成します...");
+  // console.log("Google API認証トークンを生成します...");
   
   try {
     const authClient = await authorize();
     if (authClient) {
-      console.log("トークンの生成に成功しました！");
+      // console.log("トークンの生成に成功しました！");
     } else {
       console.error("トークンの生成に失敗しました。");
     }
