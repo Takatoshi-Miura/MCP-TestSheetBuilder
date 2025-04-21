@@ -67,48 +67,67 @@ interface TestCase {
 
 // プロンプトから因子と水準を生成する関数
 function generateFactorsFromPrompt(prompt: string): Factor[] {
-  // この実装はとても単純化されています
+  // プロンプトから因子と水準を抽出
   const factors: Factor[] = [];
   
-  // プロンプトから基本的な因子を抽出する簡易処理の例
-  if (prompt.includes("ブラウザ")) {
-    factors.push({
-      name: "ブラウザ",
-      levels: ["Chrome", "Firefox", "Safari", "Edge"]
-    });
-  }
-  
-  if (prompt.includes("OS")) {
+  // OS関連の因子
+  if (prompt.includes("OS") || prompt.includes("オペレーティングシステム")) {
     factors.push({
       name: "OS",
-      levels: ["Windows", "macOS", "Linux"]
+      levels: ["iOS", "Android"]
     });
   }
   
-  if (prompt.includes("画面サイズ") || prompt.includes("解像度")) {
+  // アプリバージョン関連
+  if (prompt.includes("バージョン") || prompt.includes("version")) {
     factors.push({
-      name: "画面サイズ",
-      levels: ["スマホ", "タブレット", "デスクトップ"]
+      name: "アプリバージョン",
+      levels: ["最新版", "旧バージョン"]
     });
   }
   
-  if (prompt.includes("ネットワーク")) {
+  // 端末関連
+  if (prompt.includes("端末") || prompt.includes("デバイス") || prompt.includes("機種")) {
+    factors.push({
+      name: "端末",
+      levels: ["iPhone", "iPad", "Android Phone", "Android Tablet"]
+    });
+  }
+  
+  // ネットワーク状態
+  if (prompt.includes("ネットワーク") || prompt.includes("通信")) {
     factors.push({
       name: "ネットワーク状態",
-      levels: ["高速", "遅延あり", "オフライン"]
+      levels: ["Wi-Fi", "モバイルデータ通信", "オフライン"]
+    });
+  }
+  
+  // ユーザー状態
+  if (prompt.includes("ユーザー") || prompt.includes("ログイン")) {
+    factors.push({
+      name: "ユーザー状態",
+      levels: ["ログイン済み", "未ログイン"]
+    });
+  }
+  
+  // 画面向き
+  if (prompt.includes("画面向き") || prompt.includes("orientation")) {
+    factors.push({
+      name: "画面向き",
+      levels: ["縦向き", "横向き"]
     });
   }
   
   // もし因子が見つからなかった場合、デフォルトの因子を追加
   if (factors.length === 0) {
     factors.push({
-      name: "テスト環境",
-      levels: ["開発環境", "テスト環境", "本番環境"]
+      name: "OS",
+      levels: ["iOS", "Android"]
     });
     
     factors.push({
-      name: "ユーザー権限",
-      levels: ["一般ユーザー", "管理者"]
+      name: "端末",
+      levels: ["スマートフォン", "タブレット"]
     });
   }
   
@@ -142,32 +161,65 @@ function generateAllCombinationsTestCases(factors: Factor[]): TestCase[] {
   return generateCombinations(0, {});
 }
 
-// 直交表によるテストケースを生成する関数（簡易版）
+// 直交表によるテストケースを生成する関数
 function generateOrthogonalArrayTestCases(factors: Factor[]): TestCase[] {
-  // 簡易版の実装。本来は複雑な直交表アルゴリズムが必要
-  if (factors.length <= 2) {
-    return generateAllCombinationsTestCases(factors);
+  // 直交表L4(2^3)の定義: 3因子2水準用
+  const L4 = [
+    [0, 0, 0],
+    [0, 1, 1],
+    [1, 0, 1],
+    [1, 1, 0]
+  ];
+
+  // 直交表L8(2^7)の定義: 7因子2水準用
+  const L8 = [
+    [0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 1, 1, 1, 1],
+    [0, 1, 1, 0, 0, 1, 1],
+    [0, 1, 1, 1, 1, 0, 0],
+    [1, 0, 1, 0, 1, 0, 1],
+    [1, 0, 1, 1, 0, 1, 0],
+    [1, 1, 0, 0, 1, 1, 0],
+    [1, 1, 0, 1, 0, 0, 1]
+  ];
+
+  // 2水準に変換（水準が3以上ある場合は先頭2つのみ使用）
+  const factorsWith2Levels = factors.map(factor => {
+    return {
+      name: factor.name,
+      levels: factor.levels.length >= 2 ? [factor.levels[0], factor.levels[1]] : factor.levels
+    };
+  });
+
+  // 因子数に基づいて適切な直交表を選択
+  let orthogonalArray;
+  let usedFactors;
+
+  if (factorsWith2Levels.length <= 3) {
+    orthogonalArray = L4;
+    usedFactors = factorsWith2Levels.slice(0, 3);
+  } else if (factorsWith2Levels.length <= 7) {
+    orthogonalArray = L8;
+    usedFactors = factorsWith2Levels.slice(0, 7);
+  } else {
+    // 因子が多すぎる場合は全組み合わせの一部を使用
+    return generateAllCombinationsTestCases(factors).slice(0, 8);
   }
-  
-  // 代表的な水準を選択して組み合わせる簡易実装
+
+  // 直交表からテストケースを生成
   const testCases: TestCase[] = [];
-  const mainFactors = factors.slice(0, 2); // 最初の2つの因子は全組み合わせ
-  const mainCombinations = generateAllCombinationsTestCases(mainFactors);
-  
-  const otherFactors = factors.slice(2);
-  
-  for (const combination of mainCombinations) {
-    const testCase = { ...combination };
-    
-    // 残りの因子はランダムに水準を選択
-    for (const factor of otherFactors) {
-      const randomIndex = Math.floor(Math.random() * factor.levels.length);
-      testCase[factor.name] = factor.levels[randomIndex];
+
+  for (const row of orthogonalArray) {
+    const testCase: TestCase = {};
+    for (let i = 0; i < usedFactors.length; i++) {
+      const factor = usedFactors[i];
+      if (i < row.length && factor.levels.length > row[i]) {
+        testCase[factor.name] = factor.levels[row[i]];
+      }
     }
-    
     testCases.push(testCase);
   }
-  
+
   return testCases;
 }
 
@@ -221,6 +273,48 @@ async function updateSheetValues(
   }
 }
 
+// シートが存在するか確認する関数
+async function checkSheetExists(auth: OAuth2Client, spreadsheetId: string, sheetName: string): Promise<boolean> {
+  const sheets = google.sheets({ version: "v4", auth });
+  try {
+    const response = await sheets.spreadsheets.get({
+      spreadsheetId
+    });
+    
+    if (response.data.sheets) {
+      return response.data.sheets.some(sheet => sheet.properties?.title === sheetName);
+    }
+    return false;
+  } catch (error) {
+    console.error("シート存在確認エラー:", error);
+    throw error;
+  }
+}
+
+// シートを追加する関数
+async function addSheet(auth: OAuth2Client, spreadsheetId: string, sheetName: string): Promise<void> {
+  const sheets = google.sheets({ version: "v4", auth });
+  try {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            addSheet: {
+              properties: {
+                title: sheetName
+              }
+            }
+          }
+        ]
+      }
+    });
+  } catch (error) {
+    console.error("シート追加エラー:", error);
+    throw error;
+  }
+}
+
 // テンプレートからスプレッドシートをコピーする関数
 async function copySpreadsheet(auth: OAuth2Client, templateId: string, title: string): Promise<string> {
   const drive = google.drive({ version: "v3", auth });
@@ -243,16 +337,89 @@ async function copySpreadsheet(auth: OAuth2Client, templateId: string, title: st
   }
 }
 
+// 指定されたフォルダにファイルを移動する関数
+async function moveFileToFolder(auth: OAuth2Client, fileId: string, folderId: string): Promise<void> {
+  const drive = google.drive({ version: "v3", auth });
+  try {
+    // 現在の親フォルダを取得
+    const file = await drive.files.get({
+      fileId: fileId,
+      fields: 'parents'
+    });
+    
+    // 親フォルダのリスト
+    const previousParents = file.data.parents?.join(',') || '';
+    
+    // ファイルを新しいフォルダに移動（元の親から削除して新しい親を追加）
+    await drive.files.update({
+      fileId: fileId,
+      addParents: folderId,
+      removeParents: previousParents,
+      fields: 'id, parents'
+    });
+  } catch (error) {
+    console.error("ファイル移動エラー:", error);
+    throw error;
+  }
+}
+
+// フォルダIDの有効性を確認する関数
+async function validateFolderId(auth: OAuth2Client, folderId: string): Promise<boolean> {
+  const drive = google.drive({ version: "v3", auth });
+  try {
+    const response = await drive.files.get({
+      fileId: folderId,
+      fields: 'mimeType'
+    });
+    
+    // Google DriveのフォルダのmimeTypeを確認
+    return response.data.mimeType === 'application/vnd.google-apps.folder';
+  } catch (error) {
+    console.error("フォルダID検証エラー:", error);
+    return false;
+  }
+}
+
+// 必要なシートを確認・作成する関数
+async function ensureRequiredSheets(auth: OAuth2Client, spreadsheetId: string): Promise<void> {
+  // テスト項目シートの確認と作成
+  const testSheetExists = await checkSheetExists(auth, spreadsheetId, "テスト項目");
+  if (!testSheetExists) {
+    await addSheet(auth, spreadsheetId, "テスト項目");
+    // テスト項目シートの初期化
+    await updateSheetValues(auth, spreadsheetId, "テスト項目!A1:G2", [
+      ["№", "テスト項目", "入力値・前提条件など", "操作など", "想定される結果", "テスター１：アプリVer：OS：機種：", "【再テスト用】テスター１：アプリVer：OS：機種："],
+      ["実施日", "判定", "不具合チケットNO", "実施日", "判定", "", ""]
+    ]);
+  }
+  
+  // 因子・水準シートの確認と作成
+  const factorSheetExists = await checkSheetExists(auth, spreadsheetId, "因子・水準");
+  if (!factorSheetExists) {
+    await addSheet(auth, spreadsheetId, "因子・水準");
+    // 因子・水準シートの初期化
+    await updateSheetValues(auth, spreadsheetId, "因子・水準!A1:B1", [
+      ["因子", "水準"]
+    ]);
+  }
+}
+
 // テストシートを作成する関数
 async function createTestSheet(
   auth: OAuth2Client,
   templateId: string,
   title: string,
-  factors: Factor[],
-  testCases: TestCase[]
+  prompt: string,
+  useOrthogonalArray: boolean
 ): Promise<string> {
   // テンプレートをコピー
   const newSheetId = await copySpreadsheet(auth, templateId, title);
+  
+  // 必要なシートの確認と作成
+  await ensureRequiredSheets(auth, newSheetId);
+  
+  // プロンプトから因子と水準を生成
+  const factors = generateFactorsFromPrompt(prompt);
   
   // 因子と水準をシートに書き込む
   const factorValues = [
@@ -260,29 +427,33 @@ async function createTestSheet(
     ...factors.map(factor => [factor.name, factor.levels.join(", ")])
   ];
   
-  await updateSheetValues(auth, newSheetId, "因子水準!A1:B" + (factors.length + 1), factorValues);
+  await updateSheetValues(auth, newSheetId, `因子・水準!A1:B${factors.length + 1}`, factorValues);
+  
+  // テストケースの生成
+  const testCases = useOrthogonalArray 
+    ? generateOrthogonalArrayTestCases(factors)
+    : generateAllCombinationsTestCases(factors);
   
   // テストケースをシートに書き込む
   if (testCases.length > 0) {
-    // ヘッダー行の作成
-    const headers = ["No.", ...Object.keys(testCases[0]), "結果", "備考"];
-    
-    // データ行の作成
     const rows = testCases.map((testCase, index) => {
+      const testItem = Object.entries(testCase).map(([key, val]) => `${key}: ${val}`).join("\n");
       return [
-        (index + 1).toString(),
-        ...Object.values(testCase),
-        "", // 結果列
-        ""  // 備考列
+        (index + 1).toString(), // No.
+        `${title}のテスト ${index + 1}`, // テスト項目
+        testItem, // 入力値・前提条件など
+        "", // 操作など
+        "", // 想定される結果
+        "", // テスター1
+        ""  // 再テスト用
       ];
     });
     
-    const testCaseValues = [headers, ...rows];
     await updateSheetValues(
       auth,
       newSheetId,
-      "テストケース!A1:" + columnIndexToLetter(headers.length) + (testCases.length + 1),
-      testCaseValues
+      `テスト項目!A3:G${testCases.length + 3}`,
+      rows
     );
   }
   
@@ -291,7 +462,7 @@ async function createTestSheet(
 
 // テストシート生成ツール
 server.tool(
-  "generate-test",
+  "generate_test",
   "テストシートを生成します",
   {
     templateId: z.string().describe("テンプレートとなるスプレッドシートのID"),
@@ -313,26 +484,18 @@ server.tool(
         };
       }
 
-      // プロンプトから因子と水準を生成
-      const factors = generateFactorsFromPrompt(prompt);
-      
-      // テストケースの生成
-      const testCases = useOrthogonalArray 
-        ? generateOrthogonalArrayTestCases(factors)
-        : generateAllCombinationsTestCases(factors);
-      
       // テストシートの作成
-      const newSheetId = await createTestSheet(auth, templateId, title, factors, testCases);
+      const newSheetId = await createTestSheet(auth, templateId, title, prompt, useOrthogonalArray);
       
       return {
         content: [
           {
             type: "text",
             text: JSON.stringify({
+              status: "success",
               sheetId: newSheetId,
               sheetUrl: `https://docs.google.com/spreadsheets/d/${newSheetId}`,
-              factorCount: factors.length,
-              testCaseCount: testCases.length
+              message: "テストシートを作成しました。"
             }, null, 2)
           }
         ],
@@ -351,15 +514,16 @@ server.tool(
   }
 );
 
-// スプレッドシート情報取得ツール
+// スプレッドシートコピーツール
 server.tool(
-  "get-spreadsheet",
-  "スプレッドシートの情報を取得します",
+  "copy_spreadsheet",
+  "指定したスプレッドシートを単純にコピーするだけのツールです",
   {
-    id: z.string().describe("スプレッドシートのID"),
-    range: z.string().optional().describe("取得する範囲（例: Sheet1!A1:Z100）"),
+    sourceId: z.string().describe("コピー元のスプレッドシートのID"),
+    title: z.string().describe("コピー先のスプレッドシートのタイトル"),
+    folderId: z.string().optional().describe("コピー先のフォルダID（省略時は同じ階層にコピー）"),
   },
-  async ({ id, range = "Sheet1!A1:Z100" }) => {
+  async ({ sourceId, title, folderId }) => {
     try {
       const auth = await getAuthClient();
       if (!auth) {
@@ -373,13 +537,127 @@ server.tool(
         };
       }
 
+      // スプレッドシートをコピー
+      const newSheetId = await copySpreadsheet(auth, sourceId, title);
+      
+      // フォルダIDが指定されていれば、そのフォルダにファイルを移動
+      if (folderId) {
+        // フォルダIDの有効性を確認
+        const isValidFolder = await validateFolderId(auth, folderId);
+        if (!isValidFolder) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  status: "partial_success",
+                  sheetId: newSheetId,
+                  sheetUrl: `https://docs.google.com/spreadsheets/d/${newSheetId}`,
+                  message: "スプレッドシートをコピーしましたが、指定されたフォルダIDが無効なため移動できませんでした。"
+                }, null, 2)
+              }
+            ],
+          };
+        }
+        
+        // ファイルを指定されたフォルダに移動
+        await moveFileToFolder(auth, newSheetId, folderId);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "success",
+                sheetId: newSheetId,
+                sheetUrl: `https://docs.google.com/spreadsheets/d/${newSheetId}`,
+                folderId: folderId,
+                message: "スプレッドシートをコピーして指定されたフォルダに移動しました。"
+              }, null, 2)
+            }
+          ],
+        };
+      }
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              status: "success",
+              sheetId: newSheetId,
+              sheetUrl: `https://docs.google.com/spreadsheets/d/${newSheetId}`,
+              message: "スプレッドシートをコピーしました。"
+            }, null, 2)
+          }
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `スプレッドシートのコピーに失敗しました: ${error.message || String(error)}`
+          }
+        ],
+        isError: true
+      };
+    }
+  }
+);
+
+// スプレッドシート情報取得ツール
+server.tool(
+  "get_spreadsheet",
+  "スプレッドシートの情報を取得します",
+  {
+    id: z.string().describe("スプレッドシートのID"),
+    range: z.string().optional().describe("取得する範囲（例: Sheet1!A1:Z100）"),
+  },
+  async ({ id, range }) => {
+    try {
+      const auth = await getAuthClient();
+      if (!auth) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Google認証に失敗しました。認証情報とトークンを確認してください。",
+            },
+          ],
+        };
+      }
+
+      if (!range) {
+        // シート情報を取得
+        const sheets = google.sheets({ version: "v4", auth });
+        const sheetInfo = await sheets.spreadsheets.get({
+          spreadsheetId: id
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "success",
+                sheetInfo: sheetInfo.data
+              }, null, 2)
+            }
+          ],
+        };
+      }
+
       const values = await getSheetValues(auth, id, range);
       
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({ values }, null, 2)
+            text: JSON.stringify({
+              status: "success", 
+              values
+            }, null, 2)
           }
         ],
       };
