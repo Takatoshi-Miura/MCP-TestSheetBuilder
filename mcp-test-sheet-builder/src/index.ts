@@ -472,6 +472,22 @@ server.tool(
   },
   async ({ templateId, title, prompt, useOrthogonalArray = false }) => {
     try {
+      // テンプレートIDが提供されていない場合はエラーを返す
+      if (!templateId || templateId.trim() === '') {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "error",
+                message: "テンプレートとなるスプレッドシートが提供されていません。テンプレートのIDを提供してください。"
+              }, null, 2)
+            }
+          ],
+          isError: true
+        };
+      }
+
       const auth = await getAuthClient();
       if (!auth) {
         return {
@@ -481,6 +497,27 @@ server.tool(
               text: "Google認証に失敗しました。認証情報とトークンを確認してください。",
             },
           ],
+        };
+      }
+
+      // テンプレートIDの有効性を確認
+      try {
+        const sheets = google.sheets({ version: "v4", auth });
+        await sheets.spreadsheets.get({
+          spreadsheetId: templateId
+        });
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "error",
+                message: "提供されたテンプレートIDが無効です。有効なスプレッドシートIDを提供してください。"
+              }, null, 2)
+            }
+          ],
+          isError: true
         };
       }
 
@@ -525,6 +562,22 @@ server.tool(
   },
   async ({ sourceId, title, folderId }) => {
     try {
+      // テンプレートIDが提供されていない場合はエラーを返す
+      if (!sourceId || sourceId.trim() === '') {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "error",
+                message: "テンプレートとなるスプレッドシートが提供されていません。テンプレートのIDを提供してください。"
+              }, null, 2)
+            }
+          ],
+          isError: true
+        };
+      }
+
       const auth = await getAuthClient();
       if (!auth) {
         return {
@@ -534,6 +587,27 @@ server.tool(
               text: "Google認証に失敗しました。認証情報とトークンを確認してください。",
             },
           ],
+        };
+      }
+
+      // テンプレートIDの有効性を確認
+      try {
+        const sheets = google.sheets({ version: "v4", auth });
+        await sheets.spreadsheets.get({
+          spreadsheetId: sourceId
+        });
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "error",
+                message: "提供されたテンプレートIDが無効です。有効なスプレッドシートIDを提供してください。"
+              }, null, 2)
+            }
+          ],
+          isError: true
         };
       }
 
@@ -667,6 +741,451 @@ server.tool(
           {
             type: "text",
             text: `スプレッドシートの取得に失敗しました: ${error.message || String(error)}`
+          }
+        ],
+        isError: true
+      };
+    }
+  }
+);
+
+// 機能ごとの因子・水準を生成する関数
+interface FeatureFactor {
+  name: string;
+  factors: Factor[];
+}
+
+function generateFeatureFactorsFromPrompt(prompt: string): FeatureFactor[] {
+  const featureFactors: FeatureFactor[] = [];
+  
+  // バッジ表示に関する因子・水準
+  if (prompt.includes('バッジ') || prompt.includes('件数表示') || prompt.includes('未承認伝票')) {
+    featureFactors.push({
+      name: 'バッジ表示テスト',
+      factors: [
+        {
+          name: '対象画面',
+          levels: ['未承認一覧画面', 'ワークフロー一覧画面']
+        },
+        {
+          name: '伝票件数',
+          levels: ['0件', '1件', '98件', '99件', '100件以上']
+        },
+        {
+          name: 'バッジ表示',
+          levels: ['非表示', '件数表示(1-98)', '99表示', '99+表示']
+        },
+        {
+          name: 'デバイス',
+          levels: ['PC', 'タブレット', 'スマートフォン']
+        },
+        {
+          name: '画面サイズ',
+          levels: ['大', '中', '小']
+        }
+      ]
+    });
+  }
+  
+  // 画面に関する因子・水準
+  if (prompt.includes('画面') || prompt.includes('ページ') || prompt.includes('UI')) {
+    featureFactors.push({
+      name: '画面テスト',
+      factors: [
+        {
+          name: '画面',
+          levels: ['一覧画面', '詳細画面', '編集画面', '登録画面']
+        },
+        {
+          name: 'コンポーネント',
+          levels: ['ヘッダー', 'フッター', 'サイドメニュー', 'メインコンテンツ']
+        },
+        {
+          name: '表示状態',
+          levels: ['初期表示', 'データあり', 'データなし', 'エラー表示']
+        }
+      ]
+    });
+  }
+  
+  // ワークフローに関する因子・水準
+  if (prompt.includes('ワークフロー') || prompt.includes('承認') || prompt.includes('申請')) {
+    featureFactors.push({
+      name: 'ワークフローテスト',
+      factors: [
+        {
+          name: '画面',
+          levels: ['未承認一覧画面', 'ワークフロー一覧画面', '承認詳細画面', '申請画面']
+        },
+        {
+          name: '承認ステータス',
+          levels: ['未申請', '申請中', '承認済み', '差戻し', '却下']
+        },
+        {
+          name: 'ユーザー権限',
+          levels: ['申請者', '承認者', '管理者']
+        }
+      ]
+    });
+  }
+  
+  // データ操作に関する因子・水準
+  if (prompt.includes('データ') || prompt.includes('登録') || prompt.includes('編集') || prompt.includes('削除')) {
+    featureFactors.push({
+      name: 'データ操作テスト',
+      factors: [
+        {
+          name: '操作種別',
+          levels: ['登録', '編集', '削除', '参照']
+        },
+        {
+          name: 'データ状態',
+          levels: ['新規データ', '既存データ', '不正データ']
+        },
+        {
+          name: '権限',
+          levels: ['一般ユーザー', '管理者']
+        }
+      ]
+    });
+  }
+  
+  // 検索機能に関する因子・水準
+  if (prompt.includes('検索') || prompt.includes('フィルター') || prompt.includes('ソート')) {
+    featureFactors.push({
+      name: '検索機能テスト',
+      factors: [
+        {
+          name: '検索条件',
+          levels: ['キーワード検索', '詳細検索', '空検索', '該当なし検索']
+        },
+        {
+          name: 'ソート条件',
+          levels: ['昇順', '降順', 'なし']
+        },
+        {
+          name: 'データ量',
+          levels: ['少量', '大量', 'なし']
+        }
+      ]
+    });
+  }
+  
+  // 帳票出力に関する因子・水準
+  if (prompt.includes('帳票') || prompt.includes('出力') || prompt.includes('印刷') || prompt.includes('PDF')) {
+    featureFactors.push({
+      name: '帳票出力テスト',
+      factors: [
+        {
+          name: '帳票種類',
+          levels: ['一覧表', '詳細表', 'サマリーレポート']
+        },
+        {
+          name: '出力形式',
+          levels: ['PDF', 'Excel', 'CSV']
+        },
+        {
+          name: 'データ量',
+          levels: ['1件', '複数件', '大量データ']
+        }
+      ]
+    });
+  }
+  
+  // 何も検出できなかった場合のデフォルト
+  if (featureFactors.length === 0) {
+    featureFactors.push({
+      name: '基本機能テスト',
+      factors: [
+        {
+          name: '画面',
+          levels: ['一覧画面', '詳細画面', '編集画面']
+        },
+        {
+          name: '操作',
+          levels: ['参照', '登録', '編集', '削除']
+        },
+        {
+          name: 'ユーザー',
+          levels: ['一般ユーザー', '管理者']
+        }
+      ]
+    });
+  }
+  
+  return featureFactors;
+}
+
+// 機能ごとの因子・水準生成ツール
+server.tool(
+  "generate_feature_factors",
+  "与えられた要件に基づいて機能ごとの因子・水準を生成し、テンプレートシートに記載します",
+  {
+    templateId: z.string().describe("テンプレートとなるスプレッドシートのID"),
+    title: z.string().optional().describe("スプレッドシートのタイトル（指定しない場合は元のタイトルを維持）"),
+    prompt: z.string().describe("テスト要件を記述したプロンプト"),
+    folderId: z.string().optional().describe("生成したシートを保存するフォルダID"),
+    confirmed: z.boolean().optional().describe("因子・水準の確認結果（true: 確認済みで記載実行、false: 確認前または未確認、undefined: 初回呼び出し）"),
+    featureFactorsJson: z.string().optional().describe("確認された因子・水準のJSON文字列（confirmedがtrueの場合に使用）"),
+  },
+  async ({ templateId, title, prompt, folderId, confirmed, featureFactorsJson }) => {
+    try {
+      // テンプレートIDが提供されていない場合はエラーを返す
+      if (!templateId || templateId.trim() === '') {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "error",
+                message: "テンプレートとなるスプレッドシートが提供されていません。テンプレートのIDを提供してください。"
+              }, null, 2)
+            }
+          ],
+          isError: true
+        };
+      }
+
+      const auth = await getAuthClient();
+      if (!auth) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Google認証に失敗しました。認証情報とトークンを確認してください。",
+            },
+          ],
+        };
+      }
+
+      // テンプレートIDの有効性を確認
+      let spreadsheetInfo;
+      try {
+        const sheets = google.sheets({ version: "v4", auth });
+        const response = await sheets.spreadsheets.get({
+          spreadsheetId: templateId
+        });
+        spreadsheetInfo = response.data;
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "error",
+                message: "提供されたテンプレートIDが無効です。有効なスプレッドシートIDを提供してください。"
+              }, null, 2)
+            }
+          ],
+          isError: true
+        };
+      }
+
+      // タイトル変更が必要な場合のみコピーする
+      let targetSheetId = templateId;
+      
+      if (title) {
+        // タイトルが指定されている場合のみシートをコピー
+        targetSheetId = await copySpreadsheet(auth, templateId, title);
+        
+        // フォルダが指定されていればそのフォルダに移動
+        if (folderId) {
+          const isValidFolder = await validateFolderId(auth, folderId);
+          if (isValidFolder) {
+            await moveFileToFolder(auth, targetSheetId, folderId);
+          } else {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    status: "partial_success",
+                    sheetId: targetSheetId,
+                    sheetUrl: `https://docs.google.com/spreadsheets/d/${targetSheetId}`,
+                    message: "因子・水準シートを作成しましたが、指定されたフォルダIDが無効なため移動できませんでした。"
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+        }
+      }
+
+      // 確認済みの場合は記載処理を実行
+      if (confirmed === true && featureFactorsJson) {
+        // JSON文字列からオブジェクトに戻す
+        const parsedFeatureFactors = safeJsonParse(featureFactorsJson);
+        if (!parsedFeatureFactors) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  status: "error",
+                  message: "因子・水準データの形式が不正です。"
+                }, null, 2)
+              }
+            ],
+            isError: true
+          };
+        }
+
+        // 因子・水準シートが存在するか確認し、なければ作成
+        const hasFactorSheet = await checkSheetExists(auth, targetSheetId, "因子・水準");
+        if (!hasFactorSheet) {
+          await addSheet(auth, targetSheetId, "因子・水準");
+          // 初期ヘッダー設定
+          await updateSheetValues(auth, targetSheetId, "因子・水準!A1:B1", [["因子", "水準"]]);
+        }
+
+        // 現在のシートの内容を確認
+        const currentValues = await getSheetValues(auth, targetSheetId, "因子・水準!A:Z");
+        
+        // 既存の因子・水準テーブルを探す
+        let startRow = -1;
+        let headerRow = -1;
+        
+        // 「因子」「水準」ヘッダーを探す
+        for (let i = 0; i < currentValues.length; i++) {
+          if (currentValues[i] && 
+              currentValues[i][0] === '因子' && 
+              currentValues[i][1] === '水準') {
+            headerRow = i;
+            startRow = i + 1; // ヘッダーの次の行から書き始める
+            break;
+          }
+        }
+        
+        // 既存のテーブルが見つからない場合は新規作成
+        if (startRow === -1) {
+          // スペースを空けて最終行の後に記載
+          startRow = currentValues.length + 2;
+          headerRow = startRow - 1;
+          
+          // 因子・水準テーブルのヘッダー
+          await updateSheetValues(
+            auth,
+            targetSheetId, 
+            `因子・水準!A${headerRow}:Z${headerRow}`, 
+            [['因子', '水準', '', '', '', '', '', '', '', '', '', '', '', '', '']]
+          );
+        }
+        
+        // 既存の表に空の行がある場合はそこから書き始める
+        let writeRow = startRow;
+        for (let i = startRow; i < currentValues.length; i++) {
+          if (!currentValues[i] || !currentValues[i][0]) {
+            writeRow = i;
+            break;
+          }
+          // 既存のデータの最後まで走査して空行がなければ、最後の行の次から始める
+          if (i === currentValues.length - 1) {
+            writeRow = currentValues.length;
+          }
+        }
+        
+        // 機能ごとの表を書き込み
+        let lastRow = writeRow;
+        
+        // 各機能ごとに因子・水準表を書き込む
+        for (const feature of parsedFeatureFactors) {
+          // 機能名を書き込む（既存のテーブルの一部として追加するため、ヘッダーは書き込まない）
+          
+          // 各因子と水準を書き込む
+          for (const factor of feature.factors) {
+            // 水準を横に並べて表示するために配列を作成
+            const rowData = [factor.name];
+            
+            // 水準を配列に追加
+            factor.levels.forEach((level: string) => {
+              rowData.push(level);
+            });
+            
+            // 足りない部分を空白で埋める
+            while (rowData.length < 15) { // 列数に応じて調整
+              rowData.push('');
+            }
+            
+            // シートに書き込む
+            await updateSheetValues(
+              auth,
+              targetSheetId, 
+              `因子・水準!A${lastRow}:O${lastRow}`, 
+              [rowData]
+            );
+            
+            lastRow++;
+          }
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "success",
+                sheetId: targetSheetId,
+                sheetUrl: `https://docs.google.com/spreadsheets/d/${targetSheetId}`,
+                message: "クライアント確認後、因子・水準シートに記載しました。"
+              }, null, 2)
+            }
+          ]
+        };
+      } else if (confirmed === false) {
+        // 確認が拒否された場合
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "cancelled",
+                message: "因子・水準の記載をキャンセルしました。",
+                sheetId: targetSheetId,
+                sheetUrl: `https://docs.google.com/spreadsheets/d/${targetSheetId}`
+              }, null, 2)
+            }
+          ]
+        };
+      } else {
+        // 初回呼び出しの場合は因子・水準を生成して確認を求める
+        // プロンプトから機能ごとの因子・水準を抽出
+        const featureFactors = generateFeatureFactorsFromPrompt(prompt);
+
+        // クライアントに因子・水準の確認を求める
+        let confirmationMessage = "以下の因子・水準を生成しました。シートに追加してよろしいですか？\n\n";
+        
+        for (const feature of featureFactors) {
+          confirmationMessage += `▼ ${feature.name}\n`;
+          for (const factor of feature.factors) {
+            confirmationMessage += `・${factor.name}: ${factor.levels.join(', ')}\n`;
+          }
+          confirmationMessage += "\n";
+        }
+        
+        confirmationMessage += "この因子・水準で問題なければ、シートに記載します。";
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "confirmation_required",
+                sheetId: targetSheetId,
+                sheetUrl: `https://docs.google.com/spreadsheets/d/${targetSheetId}`,
+                featureFactors: featureFactors,
+                message: confirmationMessage,
+                action: "confirm_factors"
+              }, null, 2)
+            }
+          ]
+        };
+      }
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `因子・水準シートの生成に失敗しました: ${error.message || String(error)}`
           }
         ],
         isError: true

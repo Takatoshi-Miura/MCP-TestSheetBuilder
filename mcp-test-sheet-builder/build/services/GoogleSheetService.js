@@ -70,4 +70,125 @@ export class GoogleSheetService {
             throw error;
         }
     }
+    /**
+     * スプレッドシートの情報を取得する
+     * @param spreadsheetId スプレッドシートID
+     */
+    async getSpreadsheetInfo(spreadsheetId) {
+        try {
+            const response = await this.sheets.spreadsheets.get({
+                spreadsheetId
+            });
+            return response.data;
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    /**
+     * シートが存在するか確認する
+     * @param spreadsheetId スプレッドシートID
+     * @param sheetName シート名
+     */
+    async checkSheetExists(spreadsheetId, sheetName) {
+        try {
+            const spreadsheet = await this.getSpreadsheetInfo(spreadsheetId);
+            if (spreadsheet.sheets) {
+                return spreadsheet.sheets.some(sheet => sheet.properties?.title === sheetName);
+            }
+            return false;
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    /**
+     * シートを追加する
+     * @param spreadsheetId スプレッドシートID
+     * @param sheetName シート名
+     */
+    async addSheet(spreadsheetId, sheetName) {
+        try {
+            await this.sheets.spreadsheets.batchUpdate({
+                spreadsheetId,
+                requestBody: {
+                    requests: [
+                        {
+                            addSheet: {
+                                properties: {
+                                    title: sheetName
+                                }
+                            }
+                        }
+                    ]
+                }
+            });
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    /**
+     * シート内に表を複製する
+     * @param spreadsheetId スプレッドシートID
+     * @param sourceRange ソースとなる表の範囲
+     * @param destinationRange 複製先の範囲
+     */
+    async duplicateTable(spreadsheetId, sourceRange, destinationRange) {
+        try {
+            // ソース範囲のデータを取得
+            const sourceData = await this.getSheetValues(spreadsheetId, sourceRange);
+            if (!sourceData || sourceData.length === 0) {
+                throw new Error('複製元の表にデータがありません');
+            }
+            // 宛先に書き込み
+            await this.updateSheetValues(spreadsheetId, destinationRange, sourceData);
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    /**
+     * 指定されたフォルダにファイルを移動する
+     * @param fileId ファイルID
+     * @param folderId フォルダID
+     */
+    async moveFileToFolder(fileId, folderId) {
+        try {
+            // 現在の親フォルダを取得
+            const file = await this.drive.files.get({
+                fileId: fileId,
+                fields: 'parents'
+            });
+            // 親フォルダのリスト
+            const previousParents = file.data.parents?.join(',') || '';
+            // ファイルを新しいフォルダに移動
+            await this.drive.files.update({
+                fileId: fileId,
+                addParents: folderId,
+                removeParents: previousParents,
+                fields: 'id, parents'
+            });
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    /**
+     * フォルダIDの有効性を確認する
+     * @param folderId フォルダID
+     */
+    async validateFolderId(folderId) {
+        try {
+            const response = await this.drive.files.get({
+                fileId: folderId,
+                fields: 'mimeType'
+            });
+            // Google DriveのフォルダのmimeTypeを確認
+            return response.data.mimeType === 'application/vnd.google-apps.folder';
+        }
+        catch (error) {
+            return false;
+        }
+    }
 }
