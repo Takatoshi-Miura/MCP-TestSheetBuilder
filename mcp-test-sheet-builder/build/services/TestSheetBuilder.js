@@ -3,330 +3,6 @@ export class TestSheetBuilder {
         this.googleSheetService = googleSheetService;
     }
     /**
-     * プロンプトから因子と水準を生成する
-     * @param prompt プロンプト
-     */
-    generateFactorsFromPrompt(prompt) {
-        // この実装はとても単純化されています。実際の実装ではNLPやAIを使用することが考えられます。
-        // 例としての簡単な実装:
-        const factors = [];
-        // プロンプトから基本的な因子を抽出する簡易処理の例
-        if (prompt.includes('ブラウザ')) {
-            factors.push({
-                name: 'ブラウザ',
-                levels: ['Chrome', 'Firefox', 'Safari', 'Edge']
-            });
-        }
-        if (prompt.includes('OS')) {
-            factors.push({
-                name: 'OS',
-                levels: ['Windows', 'macOS', 'Linux']
-            });
-        }
-        if (prompt.includes('画面サイズ') || prompt.includes('解像度')) {
-            factors.push({
-                name: '画面サイズ',
-                levels: ['スマホ', 'タブレット', 'デスクトップ']
-            });
-        }
-        if (prompt.includes('ネットワーク')) {
-            factors.push({
-                name: 'ネットワーク状態',
-                levels: ['高速', '遅延あり', 'オフライン']
-            });
-        }
-        // もし因子が見つからなかった場合、デフォルトの因子を追加
-        if (factors.length === 0) {
-            factors.push({
-                name: 'テスト環境',
-                levels: ['開発環境', 'テスト環境', '本番環境']
-            });
-            factors.push({
-                name: 'ユーザー権限',
-                levels: ['一般ユーザー', '管理者']
-            });
-        }
-        return factors;
-    }
-    /**
-     * プロンプトから機能と因子・水準のリストを生成する
-     * @param prompt プロンプト
-     */
-    generateFeatureFactorsFromPrompt(prompt) {
-        const featureFactors = [];
-        // プロンプトから機能を抽出する処理
-        // 以下は例として、実際はもっと高度なNLPやAIを使用することが考えられます
-        // 画面に関する因子・水準
-        if (prompt.includes('画面') || prompt.includes('ページ') || prompt.includes('UI')) {
-            featureFactors.push({
-                featureName: '画面テスト',
-                factors: [
-                    {
-                        name: '画面',
-                        levels: ['一覧画面', '詳細画面', '編集画面', '登録画面']
-                    },
-                    {
-                        name: 'コンポーネント',
-                        levels: ['ヘッダー', 'フッター', 'サイドメニュー', 'メインコンテンツ']
-                    },
-                    {
-                        name: '表示状態',
-                        levels: ['初期表示', 'データあり', 'データなし', 'エラー表示']
-                    }
-                ]
-            });
-        }
-        // ワークフローに関する因子・水準
-        if (prompt.includes('ワークフロー') || prompt.includes('承認') || prompt.includes('申請')) {
-            featureFactors.push({
-                featureName: 'ワークフローテスト',
-                factors: [
-                    {
-                        name: '画面',
-                        levels: ['未承認一覧画面', 'ワークフロー一覧画面', '承認詳細画面', '申請画面']
-                    },
-                    {
-                        name: '承認ステータス',
-                        levels: ['未申請', '申請中', '承認済み', '差戻し', '却下']
-                    },
-                    {
-                        name: 'ユーザー権限',
-                        levels: ['申請者', '承認者', '管理者']
-                    }
-                ]
-            });
-        }
-        // データ操作に関する因子・水準
-        if (prompt.includes('データ') || prompt.includes('登録') || prompt.includes('編集') || prompt.includes('削除')) {
-            featureFactors.push({
-                featureName: 'データ操作テスト',
-                factors: [
-                    {
-                        name: '操作種別',
-                        levels: ['登録', '編集', '削除', '参照']
-                    },
-                    {
-                        name: 'データ状態',
-                        levels: ['新規データ', '既存データ', '不正データ']
-                    },
-                    {
-                        name: '権限',
-                        levels: ['一般ユーザー', '管理者']
-                    }
-                ]
-            });
-        }
-        // 検索機能に関する因子・水準
-        if (prompt.includes('検索') || prompt.includes('フィルター') || prompt.includes('ソート')) {
-            featureFactors.push({
-                featureName: '検索機能テスト',
-                factors: [
-                    {
-                        name: '検索条件',
-                        levels: ['キーワード検索', '詳細検索', '空検索', '該当なし検索']
-                    },
-                    {
-                        name: 'ソート条件',
-                        levels: ['昇順', '降順', 'なし']
-                    },
-                    {
-                        name: 'データ量',
-                        levels: ['少量', '大量', 'なし']
-                    }
-                ]
-            });
-        }
-        // 帳票出力に関する因子・水準
-        if (prompt.includes('帳票') || prompt.includes('出力') || prompt.includes('印刷') || prompt.includes('PDF')) {
-            featureFactors.push({
-                featureName: '帳票出力テスト',
-                factors: [
-                    {
-                        name: '帳票種類',
-                        levels: ['一覧表', '詳細表', 'サマリーレポート']
-                    },
-                    {
-                        name: '出力形式',
-                        levels: ['PDF', 'Excel', 'CSV']
-                    },
-                    {
-                        name: 'データ量',
-                        levels: ['1件', '複数件', '大量データ']
-                    }
-                ]
-            });
-        }
-        // 何も検出できなかった場合のデフォルト
-        if (featureFactors.length === 0) {
-            featureFactors.push({
-                featureName: '基本機能テスト',
-                factors: [
-                    {
-                        name: '画面',
-                        levels: ['一覧画面', '詳細画面', '編集画面']
-                    },
-                    {
-                        name: '操作',
-                        levels: ['参照', '登録', '編集', '削除']
-                    },
-                    {
-                        name: 'ユーザー',
-                        levels: ['一般ユーザー', '管理者']
-                    }
-                ]
-            });
-        }
-        return featureFactors;
-    }
-    /**
-     * 全因子組み合わせテストケースを生成する
-     * @param factors 因子と水準
-     */
-    generateAllCombinationsTestCases(factors) {
-        if (factors.length === 0) {
-            return [];
-        }
-        // 再帰的に組み合わせを生成
-        const generateCombinations = (index, currentCombination) => {
-            if (index === factors.length) {
-                return [currentCombination];
-            }
-            const factor = factors[index];
-            const result = [];
-            for (const level of factor.levels) {
-                const newCombination = { ...currentCombination };
-                newCombination[factor.name] = level;
-                result.push(...generateCombinations(index + 1, newCombination));
-            }
-            return result;
-        };
-        return generateCombinations(0, {});
-    }
-    /**
-     * 直交表によるテストケースを生成する（簡易版）
-     * @param factors 因子と水準
-     */
-    generateOrthogonalArrayTestCases(factors) {
-        // 簡易版の実装。本来は複雑な直交表アルゴリズムが必要
-        // ここでは因子数を減らすだけの簡単な実装
-        if (factors.length <= 2) {
-            return this.generateAllCombinationsTestCases(factors);
-        }
-        // 代表的な水準を選択して組み合わせる簡易実装
-        const testCases = [];
-        const mainFactors = factors.slice(0, 2); // 最初の2つの因子は全組み合わせ
-        const mainCombinations = this.generateAllCombinationsTestCases(mainFactors);
-        const otherFactors = factors.slice(2);
-        for (const combination of mainCombinations) {
-            const testCase = { ...combination };
-            // 残りの因子はランダムに水準を選択
-            for (const factor of otherFactors) {
-                const randomIndex = Math.floor(Math.random() * factor.levels.length);
-                testCase[factor.name] = factor.levels[randomIndex];
-            }
-            testCases.push(testCase);
-        }
-        return testCases;
-    }
-    /**
-     * テンプレートからテストシートを作成し、因子水準とテストケースを書き込む
-     * @param templateId テンプレートスプレッドシートID
-     * @param title 新しいスプレッドシートのタイトル
-     * @param factors 因子と水準
-     * @param testCases テストケース
-     */
-    async createTestSheet(templateId, title, factors, testCases) {
-        // テンプレートをコピー
-        const newSheetId = await this.googleSheetService.copySpreadsheet(templateId, title);
-        // 因子と水準をシートに書き込む
-        const factorValues = [
-            ['因子', '水準'],
-            ...factors.map(factor => [factor.name, factor.levels.join(', ')])
-        ];
-        await this.googleSheetService.updateSheetValues(newSheetId, '因子水準!A1:B' + (factors.length + 1), factorValues);
-        // テストケースをシートに書き込む
-        if (testCases.length > 0) {
-            // ヘッダー行の作成
-            const headers = ['No.', ...Object.keys(testCases[0]), '結果', '備考'];
-            // データ行の作成
-            const rows = testCases.map((testCase, index) => {
-                return [
-                    (index + 1).toString(),
-                    ...Object.values(testCase),
-                    '', // 結果列
-                    '' // 備考列
-                ];
-            });
-            const testCaseValues = [headers, ...rows];
-            await this.googleSheetService.updateSheetValues(newSheetId, 'テストケース!A1:' + this.columnIndexToLetter(headers.length) + (testCases.length + 1), testCaseValues);
-        }
-        return newSheetId;
-    }
-    /**
-     * 複数の機能ごとの因子・水準表を作成する
-     * @param spreadsheetId スプレッドシートID
-     * @param featureFactors 機能ごとの因子と水準のリスト
-     */
-    async createFeatureFactorTables(spreadsheetId, featureFactors) {
-        // 因子・水準シートが存在することを確認
-        const sheetExists = await this.googleSheetService.checkSheetExists(spreadsheetId, '因子・水準');
-        if (!sheetExists) {
-            await this.googleSheetService.addSheet(spreadsheetId, '因子・水準');
-            // 初期ヘッダーを設定
-            await this.googleSheetService.updateSheetValues(spreadsheetId, '因子・水準!A1:B1', [['因子', '水準']]);
-        }
-        // 現在のシートの内容を確認
-        const currentValues = await this.googleSheetService.getSheetValues(spreadsheetId, '因子・水準!A:B');
-        // 最終行の位置を取得
-        let lastRow = currentValues.length + 2; // 余白を入れるため+2
-        // 各機能ごとに因子・水準表を書き込む
-        for (const featureFactor of featureFactors) {
-            // 機能名を書き込む
-            await this.googleSheetService.updateSheetValues(spreadsheetId, `因子・水準!A${lastRow}:B${lastRow}`, [[`【${featureFactor.featureName}】`, '']]);
-            lastRow++;
-            // 因子・水準テーブルのヘッダー
-            await this.googleSheetService.updateSheetValues(spreadsheetId, `因子・水準!A${lastRow}:B${lastRow}`, [['因子', '水準']]);
-            lastRow++;
-            // 各因子と水準を書き込む
-            for (const factor of featureFactor.factors) {
-                // 1つのセルに1つのワードのみ記載するため、水準を別々のセルに
-                const levelRows = factor.levels.map(level => [factor.name, level]);
-                // 最初の行だけ因子名を入れる
-                for (let i = 1; i < levelRows.length; i++) {
-                    levelRows[i][0] = ''; // 因子名を空にする
-                }
-                // シートに書き込む
-                await this.googleSheetService.updateSheetValues(spreadsheetId, `因子・水準!A${lastRow}:B${lastRow + levelRows.length - 1}`, levelRows);
-                lastRow += levelRows.length;
-            }
-            // 機能間の区切りのために空行を追加
-            lastRow += 2;
-        }
-    }
-    /**
-     * テンプレートからテストシートを作成し、複数の機能ごとの因子・水準表を作成する
-     * @param templateId テンプレートスプレッドシートID
-     * @param title 新しいスプレッドシートのタイトル
-     * @param prompt テスト要件を記述したプロンプト
-     * @param folderId (オプション) 保存先フォルダID
-     */
-    async createFeatureFactorSheet(templateId, title, prompt, folderId) {
-        // テンプレートをコピー
-        const newSheetId = await this.googleSheetService.copySpreadsheet(templateId, title);
-        // プロンプトから機能と因子・水準を生成
-        const featureFactors = this.generateFeatureFactorsFromPrompt(prompt);
-        // 機能ごとの因子・水準表を作成
-        await this.createFeatureFactorTables(newSheetId, featureFactors);
-        // 指定されたフォルダに移動（指定がある場合）
-        if (folderId) {
-            const isValidFolder = await this.googleSheetService.validateFolderId(folderId);
-            if (isValidFolder) {
-                await this.googleSheetService.moveFileToFolder(newSheetId, folderId);
-            }
-        }
-        return newSheetId;
-    }
-    /**
      * 列番号をA1形式の列文字に変換する
      * @param index 列番号（1始まり）
      */
@@ -338,5 +14,341 @@ export class TestSheetBuilder {
             index = (index - temp - 1) / 26;
         }
         return letter;
+    }
+    /**
+     * 因子水準シートからテスト項目を生成する
+     * @param spreadsheetId スプレッドシートID
+     * @returns 生成結果
+     */
+    async generateTestItemsFromFactorsAndLevels(spreadsheetId) {
+        try {
+            // 因子水準シートの存在確認
+            const sheetList = await this.googleSheetService.listSheets(spreadsheetId);
+            const factorLevelSheetInfo = sheetList.sheets.find((sheet) => sheet.properties?.title === '因子・水準');
+            if (!factorLevelSheetInfo) {
+                return { success: false, message: '因子・水準シートが見つかりません。' };
+            }
+            // 因子水準シートの内容取得
+            const factorLevelData = await this.googleSheetService.getValues(spreadsheetId, '因子・水準!A1:Z100');
+            // 因子と水準を解析
+            const factors = this.parseFactorsAndLevels(factorLevelData.values || []);
+            if (factors.length === 0) {
+                return { success: false, message: '因子・水準の内容が見つかりません。' };
+            }
+            // テスト項目を生成
+            const testItems = this.generateTestItems(factors);
+            // テスト項目シートの有無を確認
+            const testItemSheetInfo = sheetList.sheets.find((sheet) => sheet.properties?.title === 'テスト項目');
+            let testItemSheetId;
+            // テスト項目シートが存在しない場合は作成
+            if (!testItemSheetInfo) {
+                // テスト項目シートを作成
+                const addSheetResult = await this.googleSheetService.addSheet(spreadsheetId, 'テスト項目');
+                testItemSheetId = addSheetResult.replies?.[0].addSheet?.properties?.sheetId || 0;
+                // ヘッダー行を設定
+                await this.googleSheetService.updateValues(spreadsheetId, 'テスト項目!A1:I3', [
+                    ['№', 'テスト項目', '', '', '入力値・前提条件など', '', '操作など', '想定される結果', 'テスター１：\nアプリVer：\nOS：\n機種：'],
+                    ['', '', '', '', '', '', '', '', '実施日'],
+                    ['', '', '', '', '', '入力値（コピペ用）']
+                ]);
+            }
+            else {
+                testItemSheetId = testItemSheetInfo.properties?.sheetId || 0;
+                // 既存のテスト項目シートを一旦クリア（ヘッダー3行を残す）
+                await this.googleSheetService.clearSheet(spreadsheetId, 'テスト項目!A4:Z1000');
+            }
+            // テスト項目を書き込み
+            if (testItems.length > 0) {
+                await this.googleSheetService.updateValues(spreadsheetId, `テスト項目!A4:H${3 + testItems.length}`, testItems);
+            }
+            // セルの書式設定（任意）
+            // ...省略...
+            return { success: true, message: 'テスト項目の生成が完了しました。' };
+        }
+        catch (error) {
+            console.error('テスト項目生成エラー:', error);
+            return { success: false, message: `エラーが発生しました: ${error}` };
+        }
+    }
+    /**
+     * 因子水準データを解析する
+     * @param data シートから読み取ったデータ
+     * @returns 解析された因子と水準の配列
+     */
+    parseFactorsAndLevels(data) {
+        const factors = [];
+        // 「因子」「水準」と書かれた行を検索
+        let factorRowIndex = -1;
+        for (let i = 0; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length < 2)
+                continue;
+            const cell1 = row[0]?.toString().trim();
+            const cell2 = row[1]?.toString().trim();
+            if (cell1 === '因子' && cell2 === '水準') {
+                factorRowIndex = i;
+                break;
+            }
+        }
+        if (factorRowIndex === -1) {
+            return factors; // 因子・水準の行が見つからない
+        }
+        // 因子の行を特定（因子・水準の次の行）
+        const factorRow = data[factorRowIndex + 1];
+        if (!factorRow || factorRow.length < 2) {
+            return factors;
+        }
+        // コンポーネント因子を処理
+        const componentFactor = {
+            name: factorRow[0]?.toString().trim() || 'コンポーネント',
+            levels: []
+        };
+        // コンポーネントの水準を収集
+        for (let i = 1; i < factorRow.length; i++) {
+            const level = factorRow[i]?.toString().trim();
+            if (level && level !== '') {
+                componentFactor.levels.push(level);
+            }
+        }
+        if (componentFactor.levels.length > 0) {
+            factors.push(componentFactor);
+        }
+        // 期待値因子を処理
+        for (let i = factorRowIndex + 2; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length < 2)
+                continue;
+            const headerCell = row[0]?.toString().trim();
+            // 通常の期待値
+            if (headerCell === '期待値') {
+                const expectFactor = {
+                    name: headerCell,
+                    levels: []
+                };
+                // 期待値の水準を収集
+                for (let j = 1; j < row.length; j++) {
+                    const level = row[j]?.toString().trim();
+                    if (level && level !== '') {
+                        expectFactor.levels.push(level);
+                    }
+                }
+                if (expectFactor.levels.length > 0) {
+                    factors.push(expectFactor);
+                }
+            }
+            // 特殊な期待値（例: 期待値: テキスト複数行のみ）
+            else if (headerCell.startsWith('期待値:')) {
+                const specialFactor = {
+                    name: headerCell,
+                    levels: []
+                };
+                // この特殊期待値の水準を収集
+                for (let j = 1; j < row.length; j++) {
+                    const level = row[j]?.toString().trim();
+                    if (level && level !== '') {
+                        specialFactor.levels.push(level);
+                    }
+                }
+                // 次の行も同じ特殊期待値の水準かもしれないのでチェック
+                for (let k = i + 1; k < data.length; k++) {
+                    const nextRow = data[k];
+                    if (!nextRow || nextRow.length < 2)
+                        break;
+                    const nextHeaderCell = nextRow[0]?.toString().trim();
+                    if (nextHeaderCell === '' || nextHeaderCell === undefined) {
+                        // 同じ特殊期待値の追加水準
+                        for (let j = 1; j < nextRow.length; j++) {
+                            const level = nextRow[j]?.toString().trim();
+                            if (level && level !== '') {
+                                specialFactor.levels.push(level);
+                            }
+                        }
+                    }
+                    else {
+                        // 別の項目なので処理終了
+                        break;
+                    }
+                }
+                if (specialFactor.levels.length > 0) {
+                    factors.push(specialFactor);
+                }
+            }
+        }
+        return factors;
+    }
+    /**
+     * テスト項目を生成する
+     * @param factors 因子と水準の配列
+     * @returns 生成されたテスト項目の配列
+     */
+    generateTestItems(factors) {
+        // ヘッダー行はシートに既に存在するため、編集しない
+        // テスト項目は4行目から開始
+        const testItems = [];
+        // 因子と水準の組み合わせ生成
+        let testCases = this.generateCombinations(factors);
+        // テスト項目作成
+        for (let i = 0; i < testCases.length; i++) {
+            const testCase = testCases[i];
+            const testNumber = i + 1;
+            // テスト項目行の作成
+            // A列: テスト番号
+            // B列: テストID (B~D列で3つまでの因子水準を表示)
+            // E列: 前提準備となる操作
+            // G列: テスト時の操作
+            // H列: G列で行った操作によって起こる期待する結果
+            // テスト項目の基本情報
+            let row = [
+                testNumber.toString(), // A列: No.
+            ];
+            // B列からD列には因子水準を記載 (最大3つまで)
+            // 水準値を取得
+            let factorLevels = [];
+            for (let j = 0; j < testCase.values.length; j++) {
+                factorLevels.push(testCase.values[j]);
+            }
+            // 因子名と水準値を組み合わせてテスト項目名を作成
+            let itemName = '';
+            for (let j = 0; j < Math.min(factorLevels.length, 1); j++) {
+                itemName += factorLevels[j];
+            }
+            row.push(itemName); // B列: 1つ目の因子水準を表示
+            // C列とD列に残りの因子水準を表示（あれば）
+            if (factorLevels.length > 1) {
+                row.push(factorLevels[1]); // C列: 2つ目の因子水準
+            }
+            else {
+                row.push(''); // C列: 空
+            }
+            if (factorLevels.length > 2) {
+                row.push(factorLevels[2]); // D列: 3つ目の因子水準
+            }
+            else {
+                row.push(''); // D列: 空
+            }
+            // E列: 前提準備となる操作
+            const preconditions = this.generatePreconditions(testCase);
+            row.push(preconditions);
+            // F列: 空欄（または入力値コピペ用）
+            row.push('');
+            // G列: テスト時の操作
+            const testProcedure = this.generateTestProcedure(testCase);
+            row.push(testProcedure);
+            // H列: 期待する結果
+            const expectedResult = this.generateExpectedResult(testCase);
+            row.push(expectedResult);
+            testItems.push(row);
+        }
+        return testItems;
+    }
+    /**
+     * テストの前提条件を生成
+     * @param testCase テストケース
+     * @returns 前提条件の文字列
+     */
+    generatePreconditions(testCase) {
+        // 前提条件の例
+        let preconditions = '・テスト用のアカウントを準備し、ログインしておく';
+        // コンポーネントに基づく前提条件を追加
+        const componentIndex = testCase.factors.findIndex(f => f === 'コンポーネント');
+        if (componentIndex !== -1) {
+            const component = testCase.values[componentIndex];
+            preconditions += `\n・${component}が表示される画面を開いておく`;
+        }
+        return preconditions;
+    }
+    /**
+     * テスト手順を生成
+     * @param testCase テストケース
+     * @returns テスト手順の文字列
+     */
+    generateTestProcedure(testCase) {
+        let procedure = '';
+        let stepNumber = 1;
+        // 各因子と水準に対応する手順を生成
+        for (let i = 0; i < testCase.factors.length; i++) {
+            const factor = testCase.factors[i];
+            const value = testCase.values[i];
+            if (factor === 'コンポーネント') {
+                procedure += `${stepNumber}. 「${value}」コンポーネントを表示する\n`;
+                stepNumber++;
+            }
+            else if (factor === '期待値') {
+                procedure += `${stepNumber}. 表示された「${value}」を確認する\n`;
+                stepNumber++;
+            }
+            else if (factor.startsWith('期待値:')) {
+                // 特殊な期待値の場合
+                // 例: "期待値: テキスト複数行のみ" の場合
+                const specificContext = factor.replace('期待値:', '').trim();
+                procedure += `${stepNumber}. ${specificContext}の「${value}」を確認する\n`;
+                stepNumber++;
+            }
+        }
+        return procedure.trim();
+    }
+    /**
+     * 期待結果を生成
+     * @param testCase テストケース
+     * @returns 期待結果の文字列
+     */
+    generateExpectedResult(testCase) {
+        let result = '';
+        let stepNumber = 1;
+        // 各因子と水準に対応する期待結果を生成
+        for (let i = 0; i < testCase.factors.length; i++) {
+            const factor = testCase.factors[i];
+            const value = testCase.values[i];
+            if (factor === 'コンポーネント') {
+                result += `${stepNumber}. 「${value}」コンポーネントが正しく表示されること\n`;
+                stepNumber++;
+            }
+            else if (factor === '期待値') {
+                result += `${stepNumber}. 「${value}」の状態が仕様通りであること\n`;
+                stepNumber++;
+            }
+            else if (factor.startsWith('期待値:')) {
+                // 特殊な期待値の場合
+                const specificContext = factor.replace('期待値:', '').trim();
+                result += `${stepNumber}. ${specificContext}の「${value}」が仕様通りに表示・動作すること\n`;
+                stepNumber++;
+            }
+        }
+        return result.trim();
+    }
+    /**
+     * 因子と水準の組み合わせを生成する
+     * @param factors 因子と水準の配列
+     * @returns 組み合わせの配列
+     */
+    generateCombinations(factors) {
+        if (!factors || factors.length === 0) {
+            return [];
+        }
+        // 最初の因子の水準を初期組み合わせとして設定
+        let combinations = [];
+        const firstFactor = factors[0];
+        for (const level of firstFactor.levels) {
+            combinations.push({
+                factors: [firstFactor.name],
+                values: [level]
+            });
+        }
+        // 残りの因子を1つずつ追加
+        for (let i = 1; i < factors.length; i++) {
+            const currentFactor = factors[i];
+            const newCombinations = [];
+            // 現在の組み合わせと新しい因子の水準を組み合わせる
+            for (const combo of combinations) {
+                for (const level of currentFactor.levels) {
+                    newCombinations.push({
+                        factors: [...combo.factors, currentFactor.name],
+                        values: [...combo.values, level]
+                    });
+                }
+            }
+            combinations = newCombinations;
+        }
+        return combinations;
     }
 }

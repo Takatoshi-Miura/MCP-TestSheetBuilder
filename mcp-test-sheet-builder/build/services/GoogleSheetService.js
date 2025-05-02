@@ -26,6 +26,25 @@ export class GoogleSheetService {
         }
     }
     /**
+     * スプレッドシートの内容を取得する（別名）
+     * @param spreadsheetId スプレッドシートID
+     * @param range 範囲
+     */
+    async getValues(spreadsheetId, range) {
+        try {
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range,
+            });
+            return {
+                values: response.data.values || []
+            };
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    /**
      * スプレッドシートの内容を更新する
      * @param spreadsheetId スプレッドシートID
      * @param range 範囲
@@ -46,6 +65,15 @@ export class GoogleSheetService {
             // console.error('スプレッドシートの値の更新に失敗しました:', error);
             throw error;
         }
+    }
+    /**
+     * スプレッドシートの内容を更新する（別名）
+     * @param spreadsheetId スプレッドシートID
+     * @param range 範囲
+     * @param values 値
+     */
+    async updateValues(spreadsheetId, range, values) {
+        return this.updateSheetValues(spreadsheetId, range, values);
     }
     /**
      * テンプレートからスプレッドシートをコピーする
@@ -86,6 +114,24 @@ export class GoogleSheetService {
         }
     }
     /**
+     * スプレッドシートのシート一覧を取得する
+     * @param spreadsheetId スプレッドシートID
+     */
+    async listSheets(spreadsheetId) {
+        try {
+            const response = await this.sheets.spreadsheets.get({
+                spreadsheetId,
+                fields: 'sheets.properties'
+            });
+            return {
+                sheets: response.data.sheets || []
+            };
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    /**
      * シートが存在するか確認する
      * @param spreadsheetId スプレッドシートID
      * @param sheetName シート名
@@ -109,7 +155,7 @@ export class GoogleSheetService {
      */
     async addSheet(spreadsheetId, sheetName) {
         try {
-            await this.sheets.spreadsheets.batchUpdate({
+            const response = await this.sheets.spreadsheets.batchUpdate({
                 spreadsheetId,
                 requestBody: {
                     requests: [
@@ -122,6 +168,23 @@ export class GoogleSheetService {
                         }
                     ]
                 }
+            });
+            return response.data;
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    /**
+     * シートの特定範囲をクリアする
+     * @param spreadsheetId スプレッドシートID
+     * @param range クリアする範囲
+     */
+    async clearSheet(spreadsheetId, range) {
+        try {
+            await this.sheets.spreadsheets.values.clear({
+                spreadsheetId,
+                range
             });
         }
         catch (error) {

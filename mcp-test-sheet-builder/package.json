@@ -27,5 +27,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node-fetch": "^2.6.12"
   }
 }
