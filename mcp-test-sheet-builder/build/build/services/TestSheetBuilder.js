@@ -54,15 +54,14 @@ export class TestSheetBuilder {
             }
             else {
                 testItemSheetId = testItemSheetInfo.properties?.sheetId || 0;
-                // 既存のテスト項目シートを一旦クリア（ヘッダー3行を残す）
+                // 既存のテスト項目シートのデータをクリア（ヘッダー3行は残す）
                 await this.googleSheetService.clearSheet(spreadsheetId, 'テスト項目!A4:Z1000');
             }
-            // テスト項目を書き込み
+            // 全てのテスト項目を一度に書き込み
             if (testItems.length > 0) {
-                await this.googleSheetService.updateValues(spreadsheetId, `テスト項目!A4:H${3 + testItems.length}`, testItems);
+                // テスト項目が途切れないようにするため、正確な範囲を指定
+                await this.googleSheetService.updateSheetValues(spreadsheetId, `テスト項目!A4:H${3 + testItems.length}`, testItems);
             }
-            // セルの書式設定（任意）
-            // ...省略...
             return { success: true, message: 'テスト項目の生成が完了しました。' };
         }
         catch (error) {
@@ -98,69 +97,51 @@ export class TestSheetBuilder {
         if (!factorRow || factorRow.length < 2) {
             return factors;
         }
-        // コンポーネント因子を処理
-        const componentFactor = {
-            name: factorRow[0]?.toString().trim() || 'コンポーネント',
+        // 最初の因子を処理
+        const firstFactor = {
+            name: factorRow[0]?.toString().trim() || '因子1',
             levels: []
         };
-        // コンポーネントの水準を収集
+        // 最初の因子の水準を収集
         for (let i = 1; i < factorRow.length; i++) {
             const level = factorRow[i]?.toString().trim();
             if (level && level !== '') {
-                componentFactor.levels.push(level);
+                firstFactor.levels.push(level);
             }
         }
-        if (componentFactor.levels.length > 0) {
-            factors.push(componentFactor);
+        if (firstFactor.levels.length > 0) {
+            factors.push(firstFactor);
         }
-        // 期待値因子を処理
+        // 追加の因子を処理
         for (let i = factorRowIndex + 2; i < data.length; i++) {
             const row = data[i];
             if (!row || row.length < 2)
                 continue;
             const headerCell = row[0]?.toString().trim();
-            // 通常の期待値
-            if (headerCell === '期待値') {
-                const expectFactor = {
+            if (headerCell && headerCell !== '') {
+                const additionalFactor = {
                     name: headerCell,
                     levels: []
                 };
-                // 期待値の水準を収集
+                // この因子の水準を収集
                 for (let j = 1; j < row.length; j++) {
                     const level = row[j]?.toString().trim();
                     if (level && level !== '') {
-                        expectFactor.levels.push(level);
+                        additionalFactor.levels.push(level);
                     }
                 }
-                if (expectFactor.levels.length > 0) {
-                    factors.push(expectFactor);
-                }
-            }
-            // 特殊な期待値（例: 期待値: テキスト複数行のみ）
-            else if (headerCell.startsWith('期待値:')) {
-                const specialFactor = {
-                    name: headerCell,
-                    levels: []
-                };
-                // この特殊期待値の水準を収集
-                for (let j = 1; j < row.length; j++) {
-                    const level = row[j]?.toString().trim();
-                    if (level && level !== '') {
-                        specialFactor.levels.push(level);
-                    }
-                }
-                // 次の行も同じ特殊期待値の水準かもしれないのでチェック
+                // 次の行も同じ因子の水準かもしれないのでチェック
                 for (let k = i + 1; k < data.length; k++) {
                     const nextRow = data[k];
                     if (!nextRow || nextRow.length < 2)
                         break;
                     const nextHeaderCell = nextRow[0]?.toString().trim();
                     if (nextHeaderCell === '' || nextHeaderCell === undefined) {
-                        // 同じ特殊期待値の追加水準
+                        // 同じ因子の追加水準
                         for (let j = 1; j < nextRow.length; j++) {
                             const level = nextRow[j]?.toString().trim();
                             if (level && level !== '') {
-                                specialFactor.levels.push(level);
+                                additionalFactor.levels.push(level);
                             }
                         }
                     }
@@ -169,8 +150,8 @@ export class TestSheetBuilder {
                         break;
                     }
                 }
-                if (specialFactor.levels.length > 0) {
-                    factors.push(specialFactor);
+                if (additionalFactor.levels.length > 0) {
+                    factors.push(additionalFactor);
                 }
             }
         }
@@ -247,14 +228,19 @@ export class TestSheetBuilder {
      * @returns 前提条件の文字列
      */
     generatePreconditions(testCase) {
-        // 前提条件の例
-        let preconditions = '・テスト用のアカウントを準備し、ログインしておく';
-        // コンポーネントに基づく前提条件を追加
-        const componentIndex = testCase.factors.findIndex(f => f === 'コンポーネント');
-        if (componentIndex !== -1) {
-            const component = testCase.values[componentIndex];
-            preconditions += `\n・${component}が表示される画面を開いておく`;
+        // 空の前提条件から開始
+        let preconditions = '';
+        
+        // 各因子と水準を前提条件として追加
+        for (let i = 0; i < testCase.factors.length; i++) {
+            const factor = testCase.factors[i];
+            const value = testCase.values[i];
+            
+            // ここで必要に応じて前提条件を構築できる
+            if (preconditions) preconditions += '\n';
+            preconditions += `・${factor}: ${value}`;
         }
+        
         return preconditions;
     }
     /**
@@ -265,26 +251,16 @@ export class TestSheetBuilder {
     generateTestProcedure(testCase) {
         let procedure = '';
         let stepNumber = 1;
+        
         // 各因子と水準に対応する手順を生成
         for (let i = 0; i < testCase.factors.length; i++) {
             const factor = testCase.factors[i];
             const value = testCase.values[i];
-            if (factor === 'コンポーネント') {
-                procedure += `${stepNumber}. 「${value}」コンポーネントを表示する\n`;
-                stepNumber++;
-            }
-            else if (factor === '期待値') {
-                procedure += `${stepNumber}. 表示された「${value}」を確認する\n`;
-                stepNumber++;
-            }
-            else if (factor.startsWith('期待値:')) {
-                // 特殊な期待値の場合
-                // 例: "期待値: テキスト複数行のみ" の場合
-                const specificContext = factor.replace('期待値:', '').trim();
-                procedure += `${stepNumber}. ${specificContext}の「${value}」を確認する\n`;
-                stepNumber++;
-            }
+            
+            procedure += `${stepNumber}. ${factor}: ${value}\n`;
+            stepNumber++;
         }
+        
         return procedure.trim();
     }
     /**
@@ -295,25 +271,16 @@ export class TestSheetBuilder {
     generateExpectedResult(testCase) {
         let result = '';
         let stepNumber = 1;
+        
         // 各因子と水準に対応する期待結果を生成
         for (let i = 0; i < testCase.factors.length; i++) {
             const factor = testCase.factors[i];
             const value = testCase.values[i];
-            if (factor === 'コンポーネント') {
-                result += `${stepNumber}. 「${value}」コンポーネントが正しく表示されること\n`;
-                stepNumber++;
-            }
-            else if (factor === '期待値') {
-                result += `${stepNumber}. 「${value}」の状態が仕様通りであること\n`;
-                stepNumber++;
-            }
-            else if (factor.startsWith('期待値:')) {
-                // 特殊な期待値の場合
-                const specificContext = factor.replace('期待値:', '').trim();
-                result += `${stepNumber}. ${specificContext}の「${value}」が仕様通りに表示・動作すること\n`;
-                stepNumber++;
-            }
+            
+            result += `${stepNumber}. ${factor}: ${value}\n`;
+            stepNumber++;
         }
+        
         return result.trim();
     }
     /**
